@@ -630,8 +630,302 @@ class EmailTemplates {
             case 'transaction':
             case 'transactions':
                 return self::transactionReportEmail($data);
+            case 'otp':
+            case 'verification_code':
+                return self::otpEmail($data);
+            case 'security_alert':
+            case 'security':
+                return self::securityAlertEmail($data);
+            case 'email_verification':
+            case 'verify_email':
+                return self::emailVerificationEmail($data);
             default:
                 return self::generalDocumentEmail($data);
         }
+    }
+    
+    /**
+     * Generate OTP/Verification Code email template
+     * 
+     * @param array $data OTP email data containing:
+     *   - recipient_name: Name of the recipient
+     *   - otp_code: The OTP code to display
+     *   - expiry_minutes: How many minutes until code expires (default: 10)
+     *   - purpose: What the OTP is for (login, registration, email_change)
+     *   - device_info: Optional device information
+     *   - location_info: Optional location information
+     * @return string HTML email content
+     */
+    public static function otpEmail(array $data): string {
+        $recipientName = htmlspecialchars($data['recipient_name'] ?? 'User');
+        $otpCode = htmlspecialchars($data['otp_code'] ?? '000000');
+        $expiryMinutes = intval($data['expiry_minutes'] ?? 10);
+        $purpose = $data['purpose'] ?? 'login';
+        $deviceInfo = htmlspecialchars($data['device_info'] ?? '');
+        $locationInfo = htmlspecialchars($data['location_info'] ?? '');
+        
+        // Determine purpose text
+        $purposeText = match($purpose) {
+            'login' => 'log into your account',
+            'registration' => 'verify your new account',
+            'email_change' => 'confirm your email address change',
+            'password_reset' => 'reset your password',
+            default => 'verify your identity'
+        };
+        
+        $deviceSection = '';
+        if ($deviceInfo || $locationInfo) {
+            $deviceSection = '
+                <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin: 20px 0; font-size: 13px;">
+                    <p style="margin: 0 0 8px 0; font-weight: 600; color: #64748b;">Request Details:</p>
+                    ' . ($deviceInfo ? '<p style="margin: 4px 0; color: #64748b;">📱 Device: ' . $deviceInfo . '</p>' : '') . '
+                    ' . ($locationInfo ? '<p style="margin: 4px 0; color: #64748b;">📍 Location: ' . $locationInfo . '</p>' : '') . '
+                    <p style="margin: 4px 0; color: #64748b;">🕐 Time: ' . date('F j, Y, g:i a') . '</p>
+                </div>
+            ';
+        }
+        
+        $bodyContent = '
+            <p>Hello <strong>' . $recipientName . '</strong>,</p>
+            
+            <p>You requested a verification code to ' . $purposeText . '. Please use the code below:</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <div style="display: inline-block; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 2px dashed #3b82f6; border-radius: 12px; padding: 24px 48px;">
+                    <p style="margin: 0 0 8px 0; font-size: 14px; color: #64748b; font-weight: 500;">Your Verification Code</p>
+                    <p style="margin: 0; font-size: 36px; font-weight: 700; font-family: \'JetBrains Mono\', \'Fira Code\', monospace; color: #1e40af; letter-spacing: 8px;">' . $otpCode . '</p>
+                </div>
+            </div>
+            
+            <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+                <p style="margin: 0; color: #92400e; font-size: 14px;">
+                    ⏱️ <strong>This code will expire in ' . $expiryMinutes . ' minutes.</strong>
+                </p>
+            </div>
+            
+            ' . $deviceSection . '
+            
+            <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 12px 16px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+                <p style="margin: 0 0 8px 0; color: #991b1b; font-size: 14px; font-weight: 600;">🔒 Security Notice</p>
+                <p style="margin: 0; color: #991b1b; font-size: 13px;">
+                    If you didn\'t request this code, please ignore this email. Someone may have entered your email address by mistake.
+                    Never share this code with anyone, including Feza Logistics staff.
+                </p>
+            </div>
+            
+            <p style="color: #64748b; font-size: 14px;">For your security, this code can only be used once.</p>
+        ';
+        
+        return self::wrapTemplate('Verification Code - Feza Logistics', '🔐', $bodyContent);
+    }
+    
+    /**
+     * Generate Security Alert email template
+     * 
+     * @param array $data Security alert data containing:
+     *   - recipient_name: Name of the recipient
+     *   - alert_type: Type of alert (new_login, password_change, account_lock, suspicious_activity)
+     *   - ip_address: IP address of the activity
+     *   - device_info: Device information
+     *   - location_info: Location information
+     *   - timestamp: When the activity occurred
+     * @return string HTML email content
+     */
+    public static function securityAlertEmail(array $data): string {
+        $recipientName = htmlspecialchars($data['recipient_name'] ?? 'User');
+        $alertType = $data['alert_type'] ?? 'new_login';
+        $ipAddress = htmlspecialchars($data['ip_address'] ?? 'Unknown');
+        $deviceInfo = htmlspecialchars($data['device_info'] ?? 'Unknown Device');
+        $locationInfo = htmlspecialchars($data['location_info'] ?? 'Unknown Location');
+        $timestamp = $data['timestamp'] ?? date('F j, Y, g:i a');
+        
+        // Configure alert content based on type
+        $alertConfig = match($alertType) {
+            'new_login' => [
+                'icon' => '🔑',
+                'title' => 'New Login to Your Account',
+                'description' => 'We detected a new login to your Feza Logistics account.',
+                'color' => '#3b82f6',
+                'bg_color' => '#eff6ff'
+            ],
+            'password_change' => [
+                'icon' => '🔒',
+                'title' => 'Password Changed Successfully',
+                'description' => 'Your account password was recently changed.',
+                'color' => '#10b981',
+                'bg_color' => '#ecfdf5'
+            ],
+            'account_lock' => [
+                'icon' => '🚫',
+                'title' => 'Account Temporarily Locked',
+                'description' => 'Your account has been temporarily locked due to multiple failed login attempts.',
+                'color' => '#ef4444',
+                'bg_color' => '#fef2f2'
+            ],
+            'suspicious_activity' => [
+                'icon' => '⚠️',
+                'title' => 'Suspicious Activity Detected',
+                'description' => 'We detected unusual activity on your account.',
+                'color' => '#f59e0b',
+                'bg_color' => '#fffbeb'
+            ],
+            'email_change_request' => [
+                'icon' => '📧',
+                'title' => 'Email Change Requested',
+                'description' => 'A request was made to change the email address associated with your account.',
+                'color' => '#06b6d4',
+                'bg_color' => '#ecfeff'
+            ],
+            default => [
+                'icon' => '🔔',
+                'title' => 'Security Alert',
+                'description' => 'An important security event occurred on your account.',
+                'color' => '#6b7280',
+                'bg_color' => '#f9fafb'
+            ]
+        };
+        
+        $bodyContent = '
+            <div style="background: ' . $alertConfig['bg_color'] . '; border-left: 4px solid ' . $alertConfig['color'] . '; padding: 16px; margin-bottom: 24px; border-radius: 0 8px 8px 0;">
+                <p style="margin: 0; font-size: 18px; font-weight: 600; color: ' . $alertConfig['color'] . ';">
+                    ' . $alertConfig['icon'] . ' ' . $alertConfig['title'] . '
+                </p>
+            </div>
+            
+            <p>Hello <strong>' . $recipientName . '</strong>,</p>
+            
+            <p>' . $alertConfig['description'] . '</p>
+            
+            <div style="background: #f8fafc; border-radius: 8px; padding: 20px; margin: 24px 0;">
+                <h3 style="margin: 0 0 16px 0; color: #1e40af; font-size: 16px;">Activity Details</h3>
+                <table style="width: 100%; font-size: 14px;">
+                    <tr>
+                        <td style="padding: 8px 0; color: #64748b; font-weight: 500; width: 120px;">🕐 Time:</td>
+                        <td style="padding: 8px 0; color: #1f2937;">' . $timestamp . '</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #64748b; font-weight: 500;">📱 Device:</td>
+                        <td style="padding: 8px 0; color: #1f2937;">' . $deviceInfo . '</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #64748b; font-weight: 500;">📍 Location:</td>
+                        <td style="padding: 8px 0; color: #1f2937;">' . $locationInfo . '</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #64748b; font-weight: 500;">🌐 IP Address:</td>
+                        <td style="padding: 8px 0; color: #1f2937;">' . $ipAddress . '</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <p><strong>If this was you:</strong> No action is needed. This is just to keep you informed about activity on your account.</p>
+            
+            <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 12px 16px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+                <p style="margin: 0 0 8px 0; color: #991b1b; font-size: 14px; font-weight: 600;">If this wasn\'t you:</p>
+                <ul style="margin: 0; padding-left: 20px; color: #991b1b; font-size: 13px;">
+                    <li>Change your password immediately</li>
+                    <li>Review your account activity</li>
+                    <li>Contact our support team at <a href="mailto:' . self::COMPANY_EMAIL . '" style="color: #1e40af;">' . self::COMPANY_EMAIL . '</a></li>
+                </ul>
+            </div>
+            
+            <p style="color: #64748b; font-size: 14px;">Stay safe online!</p>
+        ';
+        
+        return self::wrapTemplate('Security Alert - Feza Logistics', '🔐', $bodyContent);
+    }
+    
+    /**
+     * Generate Email Verification email template
+     * 
+     * @param array $data Verification email data containing:
+     *   - recipient_name: Name of the recipient
+     *   - otp_code: Verification code (if OTP-based)
+     *   - verification_link: Verification link (if link-based)
+     *   - expiry_minutes: How long the verification is valid
+     *   - purpose: registration, email_change, etc.
+     * @return string HTML email content
+     */
+    public static function emailVerificationEmail(array $data): string {
+        $recipientName = htmlspecialchars($data['recipient_name'] ?? 'User');
+        $otpCode = htmlspecialchars($data['otp_code'] ?? '');
+        $verificationLink = $data['verification_link'] ?? '';
+        $expiryMinutes = intval($data['expiry_minutes'] ?? 15);
+        $purpose = $data['purpose'] ?? 'registration';
+        
+        // Determine purpose-specific content
+        $purposeConfig = match($purpose) {
+            'registration' => [
+                'title' => 'Welcome to Feza Logistics!',
+                'intro' => 'Thank you for creating an account with Feza Logistics. We\'re excited to have you on board!',
+                'instruction' => 'To complete your registration, please verify your email address using the code below:'
+            ],
+            'email_change' => [
+                'title' => 'Verify Your New Email Address',
+                'intro' => 'You requested to change the email address associated with your Feza Logistics account.',
+                'instruction' => 'To confirm this change, please enter the verification code below:'
+            ],
+            default => [
+                'title' => 'Email Verification Required',
+                'intro' => 'Please verify your email address to continue using your Feza Logistics account.',
+                'instruction' => 'Enter the verification code below to verify your email:'
+            ]
+        };
+        
+        $verificationSection = '';
+        if ($otpCode) {
+            $verificationSection = '
+                <div style="text-align: center; margin: 30px 0;">
+                    <div style="display: inline-block; background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border: 2px dashed #10b981; border-radius: 12px; padding: 24px 48px;">
+                        <p style="margin: 0 0 8px 0; font-size: 14px; color: #64748b; font-weight: 500;">Your Verification Code</p>
+                        <p style="margin: 0; font-size: 36px; font-weight: 700; font-family: \'JetBrains Mono\', \'Fira Code\', monospace; color: #047857; letter-spacing: 8px;">' . $otpCode . '</p>
+                    </div>
+                </div>
+            ';
+        }
+        
+        if ($verificationLink) {
+            $verificationSection .= '
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="' . htmlspecialchars($verificationLink) . '" style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);">
+                        ✓ Verify Email Address
+                    </a>
+                    <p style="margin-top: 12px; font-size: 13px; color: #64748b;">
+                        Or copy and paste this link into your browser:<br>
+                        <span style="color: #3b82f6; word-break: break-all;">' . htmlspecialchars($verificationLink) . '</span>
+                    </p>
+                </div>
+            ';
+        }
+        
+        $bodyContent = '
+            <p>Hello <strong>' . $recipientName . '</strong>,</p>
+            
+            <p>' . $purposeConfig['intro'] . '</p>
+            
+            <p>' . $purposeConfig['instruction'] . '</p>
+            
+            ' . $verificationSection . '
+            
+            <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+                <p style="margin: 0; color: #92400e; font-size: 14px;">
+                    ⏱️ <strong>This verification expires in ' . $expiryMinutes . ' minutes.</strong>
+                </p>
+            </div>
+            
+            <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin: 20px 0;">
+                <p style="margin: 0 0 12px 0; color: #1f2937; font-weight: 600;">What\'s next?</p>
+                <ul style="margin: 0; padding-left: 20px; color: #64748b; font-size: 14px;">
+                    <li>Once verified, you\'ll have full access to your account</li>
+                    <li>Manage your financial documents and transactions</li>
+                    <li>Access our AI-powered financial assistant</li>
+                    <li>Generate professional invoices, receipts, and quotations</li>
+                </ul>
+            </div>
+            
+            <p style="color: #64748b; font-size: 14px;">If you didn\'t create this account, you can safely ignore this email.</p>
+        ';
+        
+        return self::wrapTemplate($purposeConfig['title'] . ' - Feza Logistics', '✉️', $bodyContent);
     }
 }

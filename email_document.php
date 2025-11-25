@@ -106,8 +106,34 @@ try {
     $email_body .= chunk_split(base64_encode($pdf_content)) . "\r\n";
     $email_body .= "--{$boundary}--";
     
-    // Send email
-    $mail_sent = mail($recipient_email, $subject, $email_body, $headers);
+    // Send email with retry mechanism
+    $mail_sent = false;
+    $mail_error = '';
+    $max_retries = 3;
+    
+    for ($attempt = 1; $attempt <= $max_retries; $attempt++) {
+        // Clear any previous errors
+        error_clear_last();
+        
+        // Attempt to send email
+        $mail_sent = @mail($recipient_email, $subject, $email_body, $headers);
+        
+        if ($mail_sent) {
+            break; // Success, exit retry loop
+        }
+        
+        // Get the last error if available
+        $last_error = error_get_last();
+        $mail_error = $last_error ? $last_error['message'] : 'Mail function returned false';
+        
+        // Log retry attempt
+        error_log("Email send attempt {$attempt}/{$max_retries} failed for {$recipient_email}: {$mail_error}");
+        
+        if ($attempt < $max_retries) {
+            // Wait before retrying (exponential backoff)
+            usleep($attempt * 500000); // 0.5s, 1s, 1.5s
+        }
+    }
     
     // Log email attempt in database
     try {
@@ -135,7 +161,7 @@ try {
             ':attachment_size' => strlen($pdf_content),
             ':email_type' => 'document',
             ':status' => $mail_sent ? 'sent' : 'failed',
-            ':error_message' => $mail_sent ? null : 'Mail function returned false',
+            ':error_message' => $mail_sent ? null : $mail_error,
             ':ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'Unknown'
         ]);
     } catch (PDOException $e) {
@@ -163,9 +189,23 @@ try {
             'message' => 'Document sent successfully to ' . $recipient_email
         ]);
     } else {
+        // Provide more detailed error message
+        $errorDetail = 'The email could not be sent.';
+        
+        // Check common issues
+        if (strpos($mail_error, 'SMTP') !== false) {
+            $errorDetail = 'SMTP configuration error. Please contact support.';
+        } elseif (strpos($mail_error, 'connection') !== false) {
+            $errorDetail = 'Mail server connection failed. Please try again later.';
+        } elseif (empty(ini_get('sendmail_path')) && empty(ini_get('SMTP'))) {
+            $errorDetail = 'Mail server not configured. Please contact support.';
+        }
+        
+        error_log("Email send failed for doc {$doc_type}#{$doc_id} to {$recipient_email}: {$mail_error}");
+        
         echo json_encode([
             'success' => false,
-            'message' => 'Failed to send email. Please try again or contact support.'
+            'message' => $errorDetail . ' If the problem persists, please contact support with error reference: ' . date('YmdHis')
         ]);
     }
     
@@ -173,7 +213,7 @@ try {
     error_log("Email document error: " . $e->getMessage());
     echo json_encode([
         'success' => false,
-        'message' => 'An error occurred while sending the document: ' . $e->getMessage()
+        'message' => 'An error occurred while preparing the document. Please try again or contact support.'
     ]);
 }
 ?>

@@ -1,6 +1,8 @@
 <?php
 require_once 'db.php';
 require_once 'rbac.php';
+require_once 'lib/EmailTemplates.php';
+
 $errors = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $first_name = trim($_POST['first_name'] ?? '');
@@ -47,10 +49,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
                 
-                $subject = "Verify Your Email Address";
-                $message = "Hello {$first_name},\n\nThank you for registering. Your 8-digit verification code is: {$otp}\n\nThis code will expire in 15 minutes.\n\nRegards,\nFeza Logistics";
-                $headers = "From: no-reply@fezalogistics.com";
-                if (mail($email, $subject, $message, $headers)) {
+                // Use professional email verification template
+                $subject = "Verify Your Email Address - Feza Logistics";
+                $htmlMessage = EmailTemplates::emailVerificationEmail([
+                    'recipient_name' => $first_name,
+                    'otp_code' => $otp,
+                    'expiry_minutes' => 15,
+                    'purpose' => 'registration'
+                ]);
+                
+                $headers = "MIME-Version: 1.0\r\n";
+                $headers .= "Content-type: text/html; charset=UTF-8\r\n";
+                $headers .= "From: Feza Logistics <no-reply@fezalogistics.com>\r\n";
+                
+                if (mail($email, $subject, $htmlMessage, $headers)) {
                     header("Location: verify_email.php?email=" . urlencode($email));
                     exit;
                 } else {

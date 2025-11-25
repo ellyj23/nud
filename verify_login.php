@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'db.php';
+require_once 'lib/EmailTemplates.php';
 
 $user_id = $_GET['user_id'] ?? null;
 $verification_error = '';
@@ -97,74 +98,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         error_log("Failed to log login attempt: " . $e->getMessage());
                     }
 
-                    // Send security notification email
+                    // Send security notification email using professional template
                     $email_subject = "New Login to Your Feza Logistics Account";
-                    $email_body = "
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <style>
-                            body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; }
-                            .container { max-width: 600px; margin: 0 auto; padding: 20px; background: #f8f9fa; }
-                            .header { background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-                            .content { background: white; padding: 30px; border-radius: 0 0 8px 8px; }
-                            .info-box { background: #eff6ff; border-left: 4px solid #2563eb; padding: 15px; margin: 20px 0; }
-                            .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
-                            .info-label { font-weight: bold; color: #1e40af; }
-                            .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
-                            .flag { font-size: 24px; }
-                        </style>
-                    </head>
-                    <body>
-                        <div class='container'>
-                            <div class='header'>
-                                <h2>🔐 Security Alert</h2>
-                            </div>
-                            <div class='content'>
-                                <p>Hello <strong>{$user['first_name']}</strong>,</p>
-                                <p>We detected a new login to your Feza Logistics account. If this was you, you can safely ignore this email.</p>
-                                
-                                <div class='info-box'>
-                                    <h3 style='margin-top: 0; color: #1e40af;'>Login Details:</h3>
-                                    <div class='info-row'>
-                                        <span class='info-label'>Time:</span>
-                                        <span>" . date('F j, Y, g:i a') . "</span>
-                                    </div>
-                                    <div class='info-row'>
-                                        <span class='info-label'>IP Address:</span>
-                                        <span>{$ip_address}</span>
-                                    </div>
-                                    <div class='info-row'>
-                                        <span class='info-label'>Device:</span>
-                                        <span>{$device}</span>
-                                    </div>
-                                    <div class='info-row'>
-                                        <span class='info-label'>Location:</span>
-                                        <span>{$location}</span>
-                                    </div>
-                                </div>
-
-                                <p><strong>If this wasn't you:</strong></p>
-                                <ul>
-                                    <li>Change your password immediately</li>
-                                    <li>Contact our support team</li>
-                                    <li>Review your recent account activity</li>
-                                </ul>
-
-                                <p>Thank you for using Feza Logistics.</p>
-                            </div>
-                            <div class='footer'>
-                                <p>This is an automated security notification from Feza Logistics.<br>
-                                Please do not reply to this email.</p>
-                            </div>
-                        </div>
-                    </body>
-                    </html>
-                    ";
+                    $email_body = EmailTemplates::securityAlertEmail([
+                        'recipient_name' => $user['first_name'],
+                        'alert_type' => 'new_login',
+                        'ip_address' => $ip_address,
+                        'device_info' => $device,
+                        'location_info' => $location,
+                        'timestamp' => date('F j, Y, g:i a')
+                    ]);
 
                     $headers = "MIME-Version: 1.0\r\n";
                     $headers .= "Content-type: text/html; charset=UTF-8\r\n";
-                    $headers .= "From: Feza Logistics Security <security@fezalogistics.com>\r\n";
+                    $headers .= "From: Feza Logistics Security <no-reply@fezalogistics.com>\r\n";
                     
                     // Send email (in production, consider using a proper email service)
                     @mail($user['email'], $email_subject, $email_body, $headers);

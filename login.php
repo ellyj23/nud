@@ -5,6 +5,8 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true) {
     exit;
 }
 require_once 'db.php';
+require_once 'lib/EmailTemplates.php';
+
 $login_error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $login_identifier = $_POST['login_identifier'] ?? '';
@@ -63,10 +65,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $otp_expiry = date('Y-m-d H:i:s', strtotime('+10 minutes'));
                     $update_stmt = $pdo->prepare("UPDATE users SET login_otp = :otp, login_otp_expires_at = :expires WHERE id = :id");
                     $update_stmt->execute([':otp' => $login_otp, ':expires' => $otp_expiry, ':id' => $user['id']]);
-                    $subject = "Your Login Verification Code";
-                    $message = "Hello {$user['first_name']},\n\nYour 6-digit verification code to log in is: {$login_otp}\n\nThis code will expire in 10 minutes.\n\nRegards,\nFeza Logistics";
-                    $headers = "From: no-reply@fezalogistics.com";
-                    if (mail($user['email'], $subject, $message, $headers)) {
+                    
+                    // Use professional OTP email template
+                    $subject = "Your Login Verification Code - Feza Logistics";
+                    $deviceInfo = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown Device';
+                    $htmlMessage = EmailTemplates::otpEmail([
+                        'recipient_name' => $user['first_name'],
+                        'otp_code' => $login_otp,
+                        'expiry_minutes' => 10,
+                        'purpose' => 'login',
+                        'device_info' => substr($deviceInfo, 0, 100),
+                        'location_info' => ''
+                    ]);
+                    
+                    $headers = "MIME-Version: 1.0\r\n";
+                    $headers .= "Content-type: text/html; charset=UTF-8\r\n";
+                    $headers .= "From: Feza Logistics <no-reply@fezalogistics.com>\r\n";
+                    
+                    if (mail($user['email'], $subject, $htmlMessage, $headers)) {
                         header("Location: verify_login.php?user_id=" . $user['id']);
                         exit;
                     } else {
@@ -432,6 +448,211 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             text-decoration: underline;
         }
 
+        /* Security Badge */
+        .security-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.375rem 0.75rem;
+            background: rgba(16, 185, 129, 0.1);
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            color: #059669;
+            font-weight: 500;
+            margin-top: 1rem;
+        }
+
+        .security-badge svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        /* Password Toggle */
+        .password-input-wrapper {
+            position: relative;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.375rem;
+            color: #9ca3af;
+            transition: color 0.2s;
+            z-index: 10;
+        }
+
+        .password-toggle:hover {
+            color: #6b7280;
+        }
+
+        .password-toggle svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .password-input-wrapper .form-input {
+            padding-right: 3rem;
+        }
+
+        /* Caps Lock Warning */
+        .caps-lock-warning {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.5rem 0.75rem;
+            background: #fef3c7;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            color: #92400e;
+            margin-top: 0.5rem;
+        }
+
+        .caps-lock-warning svg {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+        }
+
+        /* Remember Me & Forgot Password Row */
+        .remember-forgot-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+        }
+
+        .remember-me {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        .remember-me input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: #3b82f6;
+            cursor: pointer;
+        }
+
+        .forgot-link {
+            color: #3b82f6;
+            font-size: 0.875rem;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .forgot-link:hover {
+            color: #2563eb;
+            text-decoration: underline;
+        }
+
+        /* Submit Button Loading State */
+        .submit-button {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .btn-loading {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .spinner {
+            width: 18px;
+            height: 18px;
+            animation: spin 1s linear infinite;
+        }
+
+        .spinner-circle {
+            stroke: white;
+            stroke-dasharray: 60;
+            stroke-dashoffset: 45;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .is-loading .form-input {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        /* Validation Feedback Container */
+        .validation-feedback-container {
+            min-height: 1.25rem;
+            margin-top: 0.25rem;
+        }
+
+        /* Input Focus Animation */
+        .input-wrapper.focused .input-icon {
+            color: #3b82f6;
+        }
+
+        .input-wrapper {
+            transition: all 0.2s ease;
+        }
+
+        .input-wrapper.focused {
+            transform: translateY(-1px);
+        }
+
+        .form-input.is-valid {
+            border-color: #10b981;
+        }
+
+        .form-input.is-valid:focus {
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+        }
+
+        .form-input.is-invalid {
+            border-color: #ef4444;
+        }
+
+        .form-input.is-invalid:focus {
+            box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1);
+        }
+
+        /* Trust Badges */
+        .trust-badges {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .trust-badge {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.375rem;
+            font-size: 0.688rem;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .trust-badge svg {
+            width: 20px;
+            height: 20px;
+            fill: #d1d5db;
+        }
+
         /* Responsive Design */
         @media (max-width: 968px) {
             .login-container {
@@ -458,6 +679,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             .branding-panel {
                 padding: 2rem;
+            }
+
+            .trust-badges {
+                flex-wrap: wrap;
+                gap: 1rem;
+            }
+
+            .remember-forgot-row {
+                flex-direction: column;
+                gap: 0.75rem;
+                align-items: flex-start;
             }
         }
     </style>
@@ -512,22 +744,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="form-header">
                     <h2 class="form-title">Welcome Back</h2>
                     <p class="form-description">Please sign in to your account to continue</p>
+                    <!-- Security Badge -->
+                    <div class="security-badge">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+                        </svg>
+                        <span>Secure Connection</span>
+                    </div>
                 </div>
 
                 <?php if (!empty($login_error)): ?>
-                    <div class="error-message">
-                        <svg class="error-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="error-message" role="alert" aria-live="polite">
+                        <svg class="error-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <span><?php echo htmlspecialchars($login_error); ?></span>
                     </div>
                 <?php endif; ?>
 
-                <form action="login.php" method="post">
+                <form action="login.php" method="post" id="loginForm" novalidate>
                     <div class="form-group">
-                        <label for="login_identifier" class="form-label">Username</label>
+                        <label for="login_identifier" class="form-label">Username or Email</label>
                         <div class="input-wrapper">
-                            <svg class="input-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="input-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                             </svg>
                             <input 
@@ -537,14 +776,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 class="form-input" 
                                 placeholder="Enter your username or email"
                                 required 
-                                autofocus>
+                                autofocus
+                                autocomplete="username"
+                                aria-describedby="login_identifier_feedback"
+                                data-validate="username-email">
                         </div>
+                        <div id="login_identifier_feedback" class="validation-feedback-container" aria-live="polite"></div>
                     </div>
 
                     <div class="form-group">
                         <label for="password" class="form-label">Password</label>
-                        <div class="input-wrapper">
-                            <svg class="input-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div class="input-wrapper password-input-wrapper">
+                            <svg class="input-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                             </svg>
                             <input 
@@ -553,15 +796,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 name="password" 
                                 class="form-input" 
                                 placeholder="Enter your password"
-                                required>
+                                required
+                                autocomplete="current-password"
+                                aria-describedby="password_feedback"
+                                data-validate="password"
+                                data-no-strength="true">
+                            <button type="button" class="password-toggle" id="togglePassword" aria-label="Toggle password visibility" tabindex="-1">
+                                <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                                <svg class="eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;">
+                                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                                </svg>
+                            </button>
+                        </div>
+                        <div id="password_feedback" class="validation-feedback-container" aria-live="polite"></div>
+                        <div id="capsLockWarning" class="caps-lock-warning" style="display: none;">
+                            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                                <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                            </svg>
+                            <span>Caps Lock is ON</span>
                         </div>
                     </div>
 
-                    <div class="forgot-link">
-                        <a href="forgot_p!as$s$wor$d.php">Reset Password?</a>
+                    <div class="remember-forgot-row">
+                        <label class="remember-me">
+                            <input type="checkbox" name="remember_me" id="remember_me">
+                            <span class="checkmark"></span>
+                            <span>Remember me</span>
+                        </label>
+                        <a href="forgot_p!as$s$wor$d.php" class="forgot-link">Forgot password?</a>
                     </div>
 
-                    <button type="submit" class="submit-button">Sign In</button>
+                    <button type="submit" class="submit-button" id="submitBtn">
+                        <span class="btn-text">Sign In</span>
+                        <span class="btn-loading" style="display: none;">
+                            <svg class="spinner" viewBox="0 0 24 24">
+                                <circle class="spinner-circle" cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="3"></circle>
+                            </svg>
+                            <span>Signing in...</span>
+                        </span>
+                    </button>
                     
                     <div class="terms-notice">
                         By signing in you agree to our <a href="#" class="terms-link">Terms and Conditions</a>.
@@ -571,8 +848,102 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="signup-link">
                     Don't have an account? <a href="regi#s%^&ter.php">Create Account</a>
                 </div>
+
+                <!-- Trust badges -->
+                <div class="trust-badges">
+                    <div class="trust-badge">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+                        </svg>
+                        <span>Secure Login</span>
+                    </div>
+                    <div class="trust-badge">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+                        </svg>
+                        <span>Encrypted</span>
+                    </div>
+                    <div class="trust-badge">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                        </svg>
+                        <span>Verified</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
+
+    <script src="assets/js/form-validation.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginForm = document.getElementById('loginForm');
+            const loginInput = document.getElementById('login_identifier');
+            const passwordInput = document.getElementById('password');
+            const togglePassword = document.getElementById('togglePassword');
+            const capsLockWarning = document.getElementById('capsLockWarning');
+            const submitBtn = document.getElementById('submitBtn');
+            const btnText = submitBtn.querySelector('.btn-text');
+            const btnLoading = submitBtn.querySelector('.btn-loading');
+
+            // Initialize form validation if library is loaded
+            if (window.FezaFormValidation) {
+                const validator = FezaFormValidation.init(loginForm, {
+                    validateOnInput: true,
+                    validateOnBlur: true,
+                    showPasswordStrength: false, // Disable for login page
+                    enablePasswordToggle: false, // We'll handle this manually
+                    enableCapsLockWarning: false // We'll handle this manually
+                });
+            }
+
+            // Password visibility toggle
+            togglePassword.addEventListener('click', function() {
+                const type = passwordInput.type === 'password' ? 'text' : 'password';
+                passwordInput.type = type;
+                
+                const eyeOpen = togglePassword.querySelector('.eye-open');
+                const eyeClosed = togglePassword.querySelector('.eye-closed');
+                
+                if (type === 'text') {
+                    eyeOpen.style.display = 'none';
+                    eyeClosed.style.display = 'block';
+                } else {
+                    eyeOpen.style.display = 'block';
+                    eyeClosed.style.display = 'none';
+                }
+            });
+
+            // Caps Lock detection
+            passwordInput.addEventListener('keyup', function(e) {
+                const isCapsLock = e.getModifierState && e.getModifierState('CapsLock');
+                capsLockWarning.style.display = isCapsLock ? 'flex' : 'none';
+            });
+
+            passwordInput.addEventListener('blur', function() {
+                capsLockWarning.style.display = 'none';
+            });
+
+            // Form submission with loading state
+            loginForm.addEventListener('submit', function(e) {
+                // Show loading state
+                btnText.style.display = 'none';
+                btnLoading.style.display = 'flex';
+                submitBtn.disabled = true;
+                loginForm.classList.add('is-loading');
+            });
+
+            // Focus animations
+            const inputs = loginForm.querySelectorAll('.form-input');
+            inputs.forEach(input => {
+                input.addEventListener('focus', function() {
+                    this.closest('.input-wrapper').classList.add('focused');
+                });
+                input.addEventListener('blur', function() {
+                    this.closest('.input-wrapper').classList.remove('focused');
+                });
+            });
+        });
+    </script>
 </body>
 </html>

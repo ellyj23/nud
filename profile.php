@@ -8,6 +8,7 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
 }
 
 require_once 'db.php';
+require_once 'lib/EmailTemplates.php';
 
 $user_id = $_SESSION['user_id'];
 $message = '';
@@ -75,11 +76,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $otp = random_int(100000, 999999); $otp_expires_at = date('Y-m-d H:i:s', strtotime('+15 minutes'));
                     $update_stmt = $pdo->prepare("UPDATE users SET new_email_pending = :new_email, email_change_otp = :otp, otp_expires_at = :expires WHERE id = :user_id");
                     $update_stmt->execute([':new_email' => $new_email, ':otp' => $otp, ':expires' => $otp_expires_at, ':user_id' => $user_id]);
-                    $headers = "From: no-reply@fezalogistics.com";
-                    $subject_new = "Verify Your New Email Address"; $message_new = "Your verification code is: {$otp}";
-                    mail($new_email, $subject_new, $message_new, $headers);
-                    $subject_old = "Security Alert: Email Change Requested"; $message_old = "A request was made to change the email address for your account to {$new_email}.";
-                    mail($user['email'], $subject_old, $message_old, $headers);
+                    
+                    // Send professional verification email to new email
+                    $htmlHeaders = "MIME-Version: 1.0\r\n";
+                    $htmlHeaders .= "Content-type: text/html; charset=UTF-8\r\n";
+                    $htmlHeaders .= "From: Feza Logistics <no-reply@fezalogistics.com>\r\n";
+                    
+                    $subject_new = "Verify Your New Email Address - Feza Logistics";
+                    $message_new = EmailTemplates::otpEmail([
+                        'recipient_name' => $_SESSION['first_name'] ?? 'User',
+                        'otp_code' => $otp,
+                        'expiry_minutes' => 15,
+                        'purpose' => 'email_change'
+                    ]);
+                    mail($new_email, $subject_new, $message_new, $htmlHeaders);
+                    
+                    // Send security alert to old email
+                    $subject_old = "Security Alert: Email Change Requested - Feza Logistics";
+                    $message_old = EmailTemplates::securityAlertEmail([
+                        'recipient_name' => $_SESSION['first_name'] ?? 'User',
+                        'alert_type' => 'email_change_request',
+                        'ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'Unknown',
+                        'device_info' => substr($_SERVER['HTTP_USER_AGENT'] ?? 'Unknown', 0, 100),
+                        'location_info' => 'Unknown',
+                        'timestamp' => date('F j, Y, g:i a')
+                    ]);
+                    mail($user['email'], $subject_old, $message_old, $htmlHeaders);
+                    
                     header('Location: verify_email_change.php'); exit;
                 }
             }
