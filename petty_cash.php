@@ -851,7 +851,7 @@ require_once 'header.php';
             if (typeof openEmailModal === 'function') {
                 openEmailModal('petty_cash_report', 0, '', '');
             } else {
-                alert('Email functionality is being loaded. Please try again.');
+                alert('Email functionality is loading. Please try again.');
             }
         };
         

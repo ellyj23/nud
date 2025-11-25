@@ -244,7 +244,15 @@ class EmailTemplates {
     /**
      * Generate Invoice email template
      * 
-     * @param array $data Invoice data
+     * @param array $data Invoice data containing:
+     *   - recipient_name: Name of the recipient
+     *   - doc_id: Invoice document ID
+     *   - sender_name: Name of the sender
+     *   - message: Custom message body
+     *   - amount: Invoice amount (optional)
+     *   - currency: Currency code (default: RWF)
+     *   - due_date: Payment due date (optional)
+     *   - status: Payment status (paid, partially-paid, pending, unpaid, overdue, draft)
      * @return string HTML email content
      */
     public static function invoiceEmail(array $data): string {
@@ -255,9 +263,14 @@ class EmailTemplates {
         $amount = htmlspecialchars($data['amount'] ?? '');
         $currency = htmlspecialchars($data['currency'] ?? 'RWF');
         $dueDate = htmlspecialchars($data['due_date'] ?? '');
-        $status = $data['status'] ?? 'pending';
+        $status = strtolower($data['status'] ?? 'pending');
         
-        $statusClass = $status === 'paid' ? 'status-paid' : ($status === 'partially-paid' ? 'status-pending' : 'status-unpaid');
+        // Map status to CSS class - handles various status values gracefully
+        $statusClass = match($status) {
+            'paid', 'completed' => 'status-paid',
+            'partially-paid', 'partial', 'pending' => 'status-pending',
+            default => 'status-unpaid'
+        };
         $statusLabel = ucwords(str_replace('-', ' ', $status));
         
         $bodyContent = '
@@ -585,23 +598,37 @@ class EmailTemplates {
     /**
      * Get email template by document type
      * 
-     * @param string $docType Document type (invoice, receipt, quotation, petty_cash_report, transaction_report)
-     * @param array $data Template data
+     * Supported document types:
+     * - 'invoice' - Invoice document
+     * - 'receipt' - Payment receipt
+     * - 'quotation' - Quotation/Quote document
+     * - 'petty_cash_report' or 'pettycash' - Petty cash report (aliases for backward compatibility)
+     * - 'transaction_report' or 'transaction' - Transaction report (aliases for backward compatibility)
+     * - Any other type will use the general document template
+     * 
+     * @param string $docType Document type identifier
+     * @param array $data Template data including recipient_name, doc_id, sender_name, message, etc.
      * @return string HTML email content
      */
     public static function getTemplate(string $docType, array $data): string {
-        switch (strtolower($docType)) {
+        // Normalize document type to lowercase
+        $normalizedType = strtolower(str_replace('-', '_', $docType));
+        
+        switch ($normalizedType) {
             case 'invoice':
                 return self::invoiceEmail($data);
             case 'receipt':
                 return self::receiptEmail($data);
             case 'quotation':
+            case 'quote':
                 return self::quotationEmail($data);
             case 'petty_cash_report':
             case 'pettycash':
+            case 'petty_cash':
                 return self::pettyCashReportEmail($data);
             case 'transaction_report':
             case 'transaction':
+            case 'transactions':
                 return self::transactionReportEmail($data);
             default:
                 return self::generalDocumentEmail($data);
