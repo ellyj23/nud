@@ -11,6 +11,7 @@ require_once 'header.php';
   
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="assets/js/email-document.js"></script>
   
   <style>
     /* ==========================================================================
@@ -223,6 +224,8 @@ require_once 'header.php';
       <symbol id="icon-filter" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clip-rule="evenodd" /></symbol>
       <symbol id="icon-empty" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79a9 9 0 1 1-11.21-1.95 7 7 0 0 0 7.21 7.21Z"></path></symbol>
       <symbol id="icon-wallet" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" /></symbol>
+      <symbol id="icon-print" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7V9h6v3z" clip-rule="evenodd" /></symbol>
+      <symbol id="icon-email" viewBox="0 0 20 20" fill="currentColor"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" /><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" /></symbol>
     </svg>
   </div>
   
@@ -230,6 +233,8 @@ require_once 'header.php';
     <div class="header-content">
       <div class="brand"><div class="logo">💰</div><h1>Petty Cash Management</h1></div>
       <div class="controls">
+        <button class="btn secondary" id="printReportBtn"><svg class="icon"><use href="#icon-print"/></svg>Print Report</button>
+        <button class="btn secondary" id="emailReportBtn"><svg class="icon"><use href="#icon-email"/></svg>Email Report</button>
         <button class="btn success" id="addMoneyBtn"><svg class="icon"><use href="#icon-plus"/></svg>Add Money</button>
         <button class="btn danger" id="spendMoneyBtn"><svg class="icon"><use href="#icon-wallet"/></svg>Spend Money</button>
       </div>
@@ -389,6 +394,8 @@ require_once 'header.php';
             currentBalance: document.getElementById('currentBalance'),
             totalCredit: document.getElementById('totalCredit'),
             totalDebit: document.getElementById('totalDebit'),
+            printReportBtn: document.getElementById('printReportBtn'),
+            emailReportBtn: document.getElementById('emailReportBtn'),
         };
         
         const showSkeletonLoader = (rows = 8) => {
@@ -708,6 +715,145 @@ require_once 'header.php';
         elements.addMoneyBtn.onclick = () => toggleAddForm(true, 'credit');
         elements.spendMoneyBtn.onclick = () => toggleAddForm(true, 'debit');
         elements.cancelAddBtn.onclick = resetAndHideForm;
+        
+        // --- Print Report Function ---
+        elements.printReportBtn.onclick = () => {
+            const filters = getFilterState();
+            const dateRange = filters.from && filters.to 
+                ? `${filters.from} to ${filters.to}` 
+                : (filters.from ? `From ${filters.from}` : (filters.to ? `Until ${filters.to}` : 'All Time'));
+            
+            // Calculate totals for the current filtered data
+            let totalCredit = 0;
+            let totalDebit = 0;
+            allTransactions.forEach(tx => {
+                const amount = parseFloat(tx.amount);
+                if (tx.transaction_type === 'credit') totalCredit += amount;
+                else if (tx.transaction_type === 'debit') totalDebit += amount;
+            });
+            const balance = totalCredit - totalDebit;
+            
+            // Create print window
+            const printWindow = window.open('', '', 'height=800,width=1000');
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Petty Cash Report - Feza Logistics</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: white; color: #1f2937; }
+                        .header { text-align: center; padding-bottom: 20px; border-bottom: 2px solid #0052cc; margin-bottom: 20px; }
+                        .header h1 { color: #0052cc; margin: 0 0 10px 0; font-size: 28px; }
+                        .header .company { color: #6b7280; font-size: 14px; }
+                        .meta { display: flex; justify-content: space-between; margin-bottom: 20px; padding: 15px; background: #f3f4f6; border-radius: 8px; }
+                        .meta-item { text-align: center; }
+                        .meta-item .label { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+                        .meta-item .value { font-size: 16px; font-weight: 600; }
+                        .summary { display: flex; gap: 20px; margin-bottom: 25px; }
+                        .summary-card { flex: 1; padding: 20px; border-radius: 8px; text-align: center; }
+                        .summary-card.credit { background: #d1fae5; color: #065f46; }
+                        .summary-card.debit { background: #fee2e2; color: #991b1b; }
+                        .summary-card.balance { background: #dbeafe; color: #1e40af; }
+                        .summary-card .label { font-size: 12px; margin-bottom: 5px; }
+                        .summary-card .value { font-size: 24px; font-weight: 700; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                        th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+                        th { background: #f3f4f6; font-weight: 600; color: #374151; font-size: 12px; text-transform: uppercase; }
+                        tr:nth-child(even) { background: #f9fafb; }
+                        .badge { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+                        .badge-credit { background: #d1fae5; color: #065f46; }
+                        .badge-debit { background: #fee2e2; color: #991b1b; }
+                        .amount { text-align: right; font-weight: 600; font-family: monospace; }
+                        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 11px; color: #6b7280; }
+                        @media print { body { padding: 0; } }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>💰 Petty Cash Report</h1>
+                        <div class="company">Feza Logistics Ltd | KN 5 Rd, KG 16 AVe 31, Kigali International Airport, Rwanda</div>
+                    </div>
+                    
+                    <div class="meta">
+                        <div class="meta-item">
+                            <div class="label">Report Period</div>
+                            <div class="value">${escapeHtml(dateRange)}</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="label">Generated On</div>
+                            <div class="value">${new Date().toLocaleString()}</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="label">Total Transactions</div>
+                            <div class="value">${allTransactions.length}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="summary">
+                        <div class="summary-card credit">
+                            <div class="label">Total Money Added</div>
+                            <div class="value">+${totalCredit.toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
+                        </div>
+                        <div class="summary-card debit">
+                            <div class="label">Total Money Spent</div>
+                            <div class="value">-${totalDebit.toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
+                        </div>
+                        <div class="summary-card balance">
+                            <div class="label">Current Balance</div>
+                            <div class="value">${balance.toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
+                        </div>
+                    </div>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Description</th>
+                                <th>Payment Method</th>
+                                <th>Reference</th>
+                                <th style="text-align: right;">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${allTransactions.map(tx => {
+                                const currency = tx.currency || 'RWF';
+                                const currencySymbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : currency;
+                                return `
+                                <tr>
+                                    <td>${escapeHtml(tx.transaction_date)}</td>
+                                    <td><span class="badge badge-${tx.transaction_type}">${tx.transaction_type === 'credit' ? 'Money Added' : 'Money Spent'}</span></td>
+                                    <td>${escapeHtml(tx.description)}</td>
+                                    <td>${escapeHtml(tx.payment_method || '—')}</td>
+                                    <td>${escapeHtml(tx.reference || '—')}</td>
+                                    <td class="amount">${tx.transaction_type === 'debit' ? '-' : '+'}${currencySymbol} ${parseFloat(tx.amount).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                    
+                    <div class="footer">
+                        <p><strong>Feza Logistics Ltd</strong> | TIN: 121933433 | Phone: (+250) 788 616 117</p>
+                        <p>Email: info@fezalogistics.com | Web: www.fezalogistics.com</p>
+                        <p style="margin-top: 10px;">This is a system-generated report and does not require a signature.</p>
+                    </div>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => { printWindow.print(); }, 300);
+        };
+        
+        // --- Email Report Function ---
+        elements.emailReportBtn.onclick = () => {
+            // Open email modal for petty cash report
+            if (typeof openEmailModal === 'function') {
+                openEmailModal('petty_cash_report', 0, '', '');
+            } else {
+                alert('Email functionality is being loaded. Please try again.');
+            }
+        };
         
         // --- Helper Functions ---
         const escapeHtml = (str) => String(str || '').replace(/[&<>"']/g, m => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'})[m]);

@@ -12,6 +12,7 @@ require_once 'header.php';
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="assets/js/email-document.js"></script>
   
   <style>
     /* ==========================================================================
@@ -248,6 +249,7 @@ require_once 'header.php';
       <symbol id="icon-check" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
       <symbol id="icon-x" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
       <symbol id="icon-filter" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clip-rule="evenodd" /></svg>
+      <symbol id="icon-email" viewBox="0 0 20 20" fill="currentColor"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" /><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" /></symbol>
       <symbol id="icon-empty" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79a9 9 0 1 1-11.21-1.95 7 7 0 0 0 7.21 7.21Z"></path></symbol>
     </svg>
   </div>
@@ -257,6 +259,7 @@ require_once 'header.php';
       <div class="brand"><div class="logo">FT</div><h1>Transactions</h1></div>
       <div class="controls">
         <button class="btn secondary" id="printBtn"><svg class="icon"><use href="#icon-print"/></svg>Print PDF</button>
+        <button class="btn secondary" id="emailReportBtn"><svg class="icon"><use href="#icon-email"/></svg>Email Report</button>
         <button class="btn secondary" id="exportCsvBtn"><svg class="icon"><use href="#icon-export"/></svg>Export CSV</button>
         <button class="btn" id="addTxBtn"><svg class="icon"><use href="#icon-plus"/></svg>Add Transaction</button>
       </div>
@@ -375,6 +378,7 @@ require_once 'header.php';
             searchFilter: document.getElementById('searchFilter'),
             applyFilterBtn: document.getElementById('applyFilterBtn'),
             printBtn: document.getElementById('printBtn'),
+            emailReportBtn: document.getElementById('emailReportBtn'),
             exportCsvBtn: document.getElementById('exportCsvBtn'),
             selectAllCheckbox: document.getElementById('selectAllCheckbox'),
             bulkEditBtn: document.getElementById('bulkEditBtn'),
@@ -726,6 +730,15 @@ require_once 'header.php';
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Transactions");
             XLSX.writeFile(workbook, "Feza_Logistics_Transactions.xlsx");
+        };
+        
+        // Email Report Button Handler
+        elements.emailReportBtn.onclick = () => {
+            if (typeof openEmailModal === 'function') {
+                openEmailModal('transaction_report', 0, '', '');
+            } else {
+                alert('Email functionality is loading. Please try again.');
+            }
         };
         
         const resetAndHideForm = () => { elements.txForm.reset(); elements.txForm.id.value = ''; toggleAddForm(false); };

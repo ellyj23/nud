@@ -9,6 +9,7 @@ require_once 'db.php';
 require_once 'fpdf/fpdf.php';
 require_once 'lib/QRCodeGenerator.php';
 require_once 'lib/BarcodeGenerator.php';
+require_once 'lib/EmailTemplates.php';
 
 // Check authentication
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
@@ -63,138 +64,14 @@ try {
         $message = "Dear $recipient_name,\n\nPlease find attached your " . strtolower($doc_type) . " (#$doc_id) from Feza Logistics.\n\nIf you have any questions, please don't hesitate to contact us.\n\nBest regards,\n$sender_name\nFeza Logistics";
     }
     
-    // Create HTML email body
-    $html_message = "
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {
-                font-family: 'Arial', sans-serif;
-                line-height: 1.6;
-                color: #333;
-                background-color: #f4f4f4;
-                margin: 0;
-                padding: 0;
-            }
-            .container {
-                max-width: 600px;
-                margin: 20px auto;
-                background: white;
-                border-radius: 8px;
-                overflow: hidden;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            }
-            .header {
-                background: linear-gradient(135deg, #0071ce 0%, #005a9e 100%);
-                color: white;
-                padding: 30px;
-                text-align: center;
-            }
-            .header h1 {
-                margin: 0;
-                font-size: 24px;
-            }
-            .content {
-                padding: 30px;
-            }
-            .message {
-                background: #f9fafb;
-                border-left: 4px solid #0071ce;
-                padding: 15px;
-                margin: 20px 0;
-                white-space: pre-wrap;
-            }
-            .document-info {
-                background: #eff6ff;
-                border-radius: 6px;
-                padding: 15px;
-                margin: 20px 0;
-            }
-            .document-info h3 {
-                margin-top: 0;
-                color: #0071ce;
-            }
-            .info-row {
-                display: flex;
-                justify-content: space-between;
-                padding: 8px 0;
-                border-bottom: 1px solid #e5e7eb;
-            }
-            .info-row:last-child {
-                border-bottom: none;
-            }
-            .info-label {
-                font-weight: bold;
-                color: #4b5563;
-            }
-            .footer {
-                background: #f9fafb;
-                padding: 20px 30px;
-                text-align: center;
-                color: #6b7280;
-                font-size: 12px;
-                border-top: 1px solid #e5e7eb;
-            }
-            .footer p {
-                margin: 5px 0;
-            }
-            .button {
-                display: inline-block;
-                padding: 12px 30px;
-                background: #0071ce;
-                color: white;
-                text-decoration: none;
-                border-radius: 6px;
-                margin: 20px 0;
-            }
-        </style>
-    </head>
-    <body>
-        <div class='container'>
-            <div class='header'>
-                <h1>📄 Document from Feza Logistics</h1>
-            </div>
-            <div class='content'>
-                <p>Dear <strong>$recipient_name</strong>,</p>
-                
-                <div class='message'>$message</div>
-                
-                <div class='document-info'>
-                    <h3>Document Details</h3>
-                    <div class='info-row'>
-                        <span class='info-label'>Document Type:</span>
-                        <span>" . ucfirst($doc_type) . "</span>
-                    </div>
-                    <div class='info-row'>
-                        <span class='info-label'>Document ID:</span>
-                        <span>#$doc_id</span>
-                    </div>
-                    <div class='info-row'>
-                        <span class='info-label'>Date:</span>
-                        <span>" . date('F j, Y') . "</span>
-                    </div>
-                    <div class='info-row'>
-                        <span class='info-label'>Sent by:</span>
-                        <span>$sender_name</span>
-                    </div>
-                </div>
-                
-                <p><strong>Note:</strong> The document is attached to this email as a PDF file.</p>
-                
-                <p>If you have any questions or need assistance, please contact us at info@fezalogistics.com or call (+250) 788 616 117.</p>
-            </div>
-            <div class='footer'>
-                <p><strong>Feza Logistics Ltd</strong></p>
-                <p>KN 5 Rd, KG 16 AVe 31, Kigali International Airport, Rwanda</p>
-                <p>TIN: 121933433 | Phone: (+250) 788 616 117</p>
-                <p>Email: info@fezalogistics.com | Web: www.fezalogistics.com</p>
-                <p style='margin-top: 15px; color: #9ca3af;'>This is an automated message from Feza Logistics Financial Management System.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    ";
+    // Create HTML email body using professional templates
+    $html_message = EmailTemplates::getTemplate($doc_type, [
+        'recipient_name' => $recipient_name,
+        'doc_type' => $doc_type,
+        'doc_id' => $doc_id,
+        'sender_name' => $sender_name,
+        'message' => $message
+    ]);
     
     // Email headers
     $boundary = md5(time());
