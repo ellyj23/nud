@@ -97,12 +97,13 @@ class PasswordPolicy {
             }
         }
         
-        // Remove duplicates and filter to keep only alphanumeric characters
+        // Filter to keep only alphanumeric characters, then remove duplicates
         // This filters out any special characters (like spaces, dots, etc.) from the forbidden list
-        $forbiddenChars = array_unique($forbiddenChars);
+        // Performance optimization: filter before unique to reduce array size
         $forbiddenChars = array_filter($forbiddenChars, function($char) {
             return preg_match('/[a-z0-9]/i', $char);
         });
+        $forbiddenChars = array_unique($forbiddenChars);
         
         // Check if password contains any forbidden characters
         $passwordLower = strtolower($password);
@@ -146,11 +147,17 @@ class PasswordPolicy {
         }
         
         // Check if password is older than expiry days
-        $lastChanged = new DateTime($user['password_last_changed_at']);
-        $now = new DateTime();
-        $daysSinceChange = $now->diff($lastChanged)->days;
-        
-        return $daysSinceChange >= self::PASSWORD_EXPIRY_DAYS;
+        try {
+            $lastChanged = new DateTime($user['password_last_changed_at']);
+            $now = new DateTime();
+            $daysSinceChange = $now->diff($lastChanged)->days;
+            
+            return $daysSinceChange >= self::PASSWORD_EXPIRY_DAYS;
+        } catch (Exception $e) {
+            // If date parsing fails, treat as expired for security
+            error_log("Failed to parse password_last_changed_at date: " . $e->getMessage());
+            return true;
+        }
     }
     
     /**
