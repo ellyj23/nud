@@ -13,6 +13,10 @@ class PasswordPolicy {
     const PASSWORD_EXPIRY_DAYS = 90;
     const EXEMPT_USERNAMES = ['admin']; // Usernames exempt from expiration
     
+    // Special characters allowed in passwords
+    // Includes: @ $ ! % * ? & # ^ ( ) _ + - = [ ] { } ; : ' " , . < > / \ | ` ~
+    const SPECIAL_CHAR_PATTERN = '/[@$!%*?&#^()_+\-=\[\]{};:\'",.<>\/\\|`~]/';
+    
     /**
      * Validates password complexity requirements
      * 
@@ -54,26 +58,28 @@ class PasswordPolicy {
         }
         
         // Check for special character
-        if (!preg_match('/[@$!%*?&#^()_+\-=\[\]{};:\'",.<>\/\\|`~]/', $password)) {
+        if (!preg_match(self::SPECIAL_CHAR_PATTERN, $password)) {
             $errors[] = "Password must contain at least one special character.";
         }
         
         // Check that password doesn't contain user info
+        // The policy requirement is to not contain any LETTER or DIGIT from name/email
+        // Special characters from email (like @ or .) are allowed in passwords
         $forbiddenChars = [];
         
-        // Extract all alphanumeric characters from first name
+        // Extract all characters from first name
         if (!empty($firstName)) {
             $firstNameChars = preg_split('//u', strtolower($firstName), -1, PREG_SPLIT_NO_EMPTY);
             $forbiddenChars = array_merge($forbiddenChars, $firstNameChars);
         }
         
-        // Extract all alphanumeric characters from last name
+        // Extract all characters from last name
         if (!empty($lastName)) {
             $lastNameChars = preg_split('//u', strtolower($lastName), -1, PREG_SPLIT_NO_EMPTY);
             $forbiddenChars = array_merge($forbiddenChars, $lastNameChars);
         }
         
-        // Extract all characters from email (before @ and domain parts)
+        // Extract characters from email (local part and domain, excluding special chars like @ and .)
         if (!empty($email)) {
             $emailParts = explode('@', strtolower($email));
             if (count($emailParts) > 0) {
@@ -81,7 +87,7 @@ class PasswordPolicy {
                 $forbiddenChars = array_merge($forbiddenChars, $emailLocalPart);
                 
                 if (count($emailParts) > 1) {
-                    // Also check domain without TLD
+                    // Also check domain (excluding TLD to avoid very common letters)
                     $domainParts = explode('.', $emailParts[1]);
                     if (count($domainParts) > 0) {
                         $domainChars = preg_split('//u', $domainParts[0], -1, PREG_SPLIT_NO_EMPTY);
@@ -91,7 +97,8 @@ class PasswordPolicy {
             }
         }
         
-        // Remove duplicates and filter only alphanumeric
+        // Remove duplicates and filter to keep only alphanumeric characters
+        // This filters out any special characters (like spaces, dots, etc.) from the forbidden list
         $forbiddenChars = array_unique($forbiddenChars);
         $forbiddenChars = array_filter($forbiddenChars, function($char) {
             return preg_match('/[a-z0-9]/i', $char);

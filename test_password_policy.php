@@ -11,11 +11,12 @@ require_once 'lib/PasswordPolicy.php';
 echo "=== Password Policy Test ===\n\n";
 
 // Test 1: Password Complexity Validation - Valid Password
-// Using password with NO characters from "Bob", "Xyz", or "bob@uvw.xy"
-// Name chars: b, o, x, y, z
-// Email chars: b, o, @, u, v, w, ., x, y
+// Using password with NO alphanumeric characters from "Bob", "Xyz", or "bob@uvw.xy"
+// Name chars (alphanumeric only): b, o, x, y, z
+// Email chars (alphanumeric only): b, o, u, v, w, x, y (excluding @ and .)
 // Password must avoid: b, o, x, y, z, u, v, w
 // Safe characters to use: a, c, d, e, f, g, h, i, j, k, l, m, n, p, q, r, s, t
+// Plus all special characters are allowed
 echo "Test 1: Valid password with all requirements...\n";
 $result = PasswordPolicy::validateComplexity('Qdm9!Rfp8@Ljt3#', 'Bob', 'Xyz', 'bob@uvw.xy');
 if ($result['valid']) {
@@ -158,7 +159,8 @@ if (PasswordPolicy::isPasswordExpired($user)) {
 }
 
 // Test 14: Complex valid password that doesn't contain name/email
-// For "Jane" "Doe" "jane@doe.com", forbidden chars are: j, a, n, e, d, o, @, ., c, m
+// For "Jane" "Doe" "jane@doe.com", forbidden chars (alphanumeric only) are: j, a, n, e, d, o, c, m
+// Note: @ and . are not forbidden as they are special characters
 // Safe chars: b, f, g, h, i, k, l, p, q, r, s, t, u, v, w, x, y, z
 echo "Test 14: Complex valid password (no name/email characters)...\n";
 $result = PasswordPolicy::validateComplexity('Bfg9!Hik8@Lpq7#', 'Jane', 'Doe', 'jane@doe.com');
