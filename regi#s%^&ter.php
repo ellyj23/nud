@@ -2,6 +2,7 @@
 require_once 'db.php';
 require_once 'rbac.php';
 require_once 'lib/EmailTemplates.php';
+require_once 'lib/PasswordPolicy.php';
 
 $errors = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -11,16 +12,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $phone_number = trim($_POST['phone_number'] ?? '');
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
-    $password_regex = "/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/";
+    
     if (empty($first_name) || empty($last_name) || empty($email) || empty($username) || empty($password)) {
         $errors[] = 'All fields except phone number are required.';
     }
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors[] = 'Please enter a valid email address.';
     }
-    if (!preg_match($password_regex, $password)) {
-        $errors[] = 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.';
+    
+    // Use enhanced password complexity validation
+    $passwordValidation = PasswordPolicy::validateComplexity($password, $first_name, $last_name, $email);
+    if (!$passwordValidation['valid']) {
+        $errors = array_merge($errors, $passwordValidation['errors']);
     }
+    
     if (empty($errors)) {
         try {
             $stmt = $pdo->prepare("SELECT id FROM users WHERE username = :username OR email = :email");
@@ -31,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $password_hash = password_hash($password, PASSWORD_DEFAULT);
                 $otp = random_int(10000000, 99999999);
                 $otp_expiry = date('Y-m-d H:i:s', strtotime('+15 minutes'));
-                $sql = "INSERT INTO users (first_name, last_name, email, phone_number, username, password_hash, email_verification_otp, email_otp_expires_at, is_email_verified) VALUES (:first_name, :last_name, :email, :phone_number, :username, :password_hash, :otp, :otp_expiry, 0)";
+                $sql = "INSERT INTO users (first_name, last_name, email, phone_number, username, password_hash, email_verification_otp, email_otp_expires_at, is_email_verified, password_last_changed_at) VALUES (:first_name, :last_name, :email, :phone_number, :username, :password_hash, :otp, :otp_expiry, 0, NOW())";
                 $stmt = $pdo->prepare($sql);
                 $stmt->execute([':first_name' => $first_name, ':last_name' => $last_name, ':email' => $email, ':phone_number' => $phone_number, ':username' => $username, ':password_hash' => $password_hash, ':otp' => $otp, ':otp_expiry' => $otp_expiry]);
                 

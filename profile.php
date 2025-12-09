@@ -9,6 +9,7 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
 
 require_once 'db.php';
 require_once 'lib/EmailTemplates.php';
+require_once 'lib/PasswordPolicy.php';
 
 $user_id = $_SESSION['user_id'];
 $message = '';
@@ -20,8 +21,11 @@ $email = $_SESSION['email'] ?? '';
 $first_name = $_SESSION['first_name'] ?? $username;
 $initials = strtoupper(substr($first_name, 0, 2));
 
-// --- The PHP logic for updating profile, password, and email remains exactly the same ---
-// --- No changes are needed in the PHP block below ---
+// Fetch full user data for password validation
+$stmt = $pdo->prepare("SELECT first_name, last_name, email FROM users WHERE id = :user_id");
+$stmt->execute([':user_id' => $user_id]);
+$userData = $stmt->fetch();
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     try {
@@ -36,6 +40,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $update_stmt->execute([':first_name' => $first_name, ':last_name' => $last_name, ':username' => $username, ':phone_number' => $phone_number, ':user_id' => $user_id]);
                 $_SESSION['first_name'] = $first_name; $_SESSION['last_name'] = $last_name; $_SESSION['username'] = $username; $_SESSION['phone_number'] = $phone_number;
                 $message = 'Profile information updated successfully!'; $message_type = 'success';
+                // Refresh user data for password validation
+                $userData['first_name'] = $first_name;
+                $userData['last_name'] = $last_name;
             }
         }
         if ($action === 'change_password') {
@@ -45,15 +52,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user = $stmt->fetch();
             if (!$user || !password_verify($current_password, $user['password_hash'])) {
                 $message = 'Your current password is not correct.'; $message_type = 'error';
-            } elseif (empty($new_password) || strlen($new_password) < 8) {
-                $message = 'New password must be at least 8 characters long.'; $message_type = 'error';
             } elseif ($new_password !== $confirm_password) {
                 $message = 'New passwords do not match.'; $message_type = 'error';
             } else {
-                $new_password_hash = password_hash($new_password, PASSWORD_DEFAULT);
-                $update_stmt = $pdo->prepare("UPDATE users SET password_hash = :password_hash WHERE id = :user_id");
-                $update_stmt->execute([':password_hash' => $new_password_hash, ':user_id' => $user_id]);
-                $message = 'Password changed successfully.'; $message_type = 'success';
+                // Use enhanced password complexity validation
+                $passwordValidation = PasswordPolicy::validateComplexity($new_password, $userData['first_name'], $userData['last_name'], $userData['email']);
+                if (!$passwordValidation['valid']) {
+                    $message = implode(' ', $passwordValidation['errors']); $message_type = 'error';
+                } else {
+                    $new_password_hash = password_hash($new_password, PASSWORD_DEFAULT);
+                    if (PasswordPolicy::updatePassword($pdo, $user_id, $new_password_hash)) {
+                        $message = 'Password changed successfully.'; $message_type = 'success';
+                    } else {
+                        $message = 'Failed to update password. Please try again.'; $message_type = 'error';
+                    }
+                }
             }
         }
         if ($action === 'change_email') {

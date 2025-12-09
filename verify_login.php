@@ -2,6 +2,7 @@
 session_start();
 require_once 'db.php';
 require_once 'lib/EmailTemplates.php';
+require_once 'lib/PasswordPolicy.php';
 
 $user_id = $_GET['user_id'] ?? null;
 $verification_error = '';
@@ -115,6 +116,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     // Send email (in production, consider using a proper email service)
                     @mail($user['email'], $email_subject, $email_body, $headers);
+
+                    // Check if password has expired
+                    if (PasswordPolicy::isPasswordExpired($user)) {
+                        // Password expired - redirect to password reset page with special flag
+                        $_SESSION['password_expired'] = true;
+                        $_SESSION['password_expired_message'] = 'Your password has expired. Please set a new password to continue.';
+                        header('Location: change_expired_password.php');
+                        exit;
+                    }
 
                     // Redirect to the main page
                     header('Location: index.php');
