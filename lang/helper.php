@@ -63,14 +63,14 @@ function loadLanguage($lang = null) {
         $lang = getCurrentLanguage();
     }
     
-    $langFile = __DIR__ . "/lang/{$lang}.php";
+    $langFile = __DIR__ . "/{$lang}.php";
     
     if (file_exists($langFile)) {
         return include $langFile;
     }
     
     // Fallback to English
-    return include __DIR__ . "/lang/en.php";
+    return include __DIR__ . "/en.php";
 }
 
 /**

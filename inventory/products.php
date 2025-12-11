@@ -162,30 +162,39 @@ try {
             </a>
         </div>
         
+        <?php
+        // Calculate metrics once for efficiency
+        $totalProducts = count($products);
+        $lowStockCount = 0;
+        $activeCount = 0;
+        $totalValue = 0;
+        
+        foreach ($products as $p) {
+            if ($p['stock_status'] === 'low' || $p['stock_status'] === 'out') {
+                $lowStockCount++;
+            }
+            if ($p['status'] === 'active') {
+                $activeCount++;
+            }
+            $totalValue += $p['current_stock'] * $p['unit_cost'];
+        }
+        ?>
+        
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-value"><?php echo count($products); ?></div>
+                <div class="stat-value"><?php echo $totalProducts; ?></div>
                 <div class="stat-label">Total Products</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">
-                    <?php echo count(array_filter($products, fn($p) => $p['stock_status'] === 'low' || $p['stock_status'] === 'out')); ?>
-                </div>
+                <div class="stat-value"><?php echo $lowStockCount; ?></div>
                 <div class="stat-label">Low Stock Alerts</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">
-                    <?php echo count(array_filter($products, fn($p) => $p['status'] === 'active')); ?>
-                </div>
+                <div class="stat-value"><?php echo $activeCount; ?></div>
                 <div class="stat-label">Active Products</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">
-                    <?php 
-                        $totalValue = array_sum(array_map(fn($p) => $p['current_stock'] * $p['unit_cost'], $products));
-                        echo number_format($totalValue, 0);
-                    ?>
-                </div>
+                <div class="stat-value"><?php echo number_format($totalValue, 0); ?></div>
                 <div class="stat-label">Total Inventory Value (RWF)</div>
             </div>
         </div>

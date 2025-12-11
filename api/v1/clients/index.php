@@ -26,9 +26,9 @@ session_start();
 $authenticated = false;
 
 // Check for Bearer token
-$headers = getallheaders();
-if (isset($headers['Authorization'])) {
-    $token = str_replace('Bearer ', '', $headers['Authorization']);
+$authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? (function_exists('getallheaders') ? (getallheaders()['Authorization'] ?? '') : '');
+if (!empty($authHeader)) {
+    $token = str_replace('Bearer ', '', $authHeader);
     
     // Verify token (simplified - should use JWT verification)
     try {
