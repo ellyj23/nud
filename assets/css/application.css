@@ -739,6 +739,13 @@
   align-items: center;
 }
 
+.user-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
 /* Payment Progress Bar */
 .payment-progress {
   width: 100%;
@@ -881,9 +888,30 @@
   margin-top: 0.25rem;
 }
 
+/* Date container for wrapping date and time-ago */
+.date-container {
+  display: inline-block;
+  white-space: normal; /* Allow internal wrapping for time-ago */
+}
+
+.date-main {
+  display: block;
+  white-space: nowrap;
+}
+
 /* Single-line table cell styling */
 .enhanced-table td {
   white-space: nowrap;
+}
+
+/* But allow specific elements to wrap internally */
+.enhanced-table td .date-container,
+.enhanced-table td .paid-container {
+  white-space: normal;
+}
+
+.paid-container {
+  display: inline-block;
 }
 
 /* Text truncation with ellipsis */

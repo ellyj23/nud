@@ -801,7 +801,7 @@ $(document).ready(function() {
                 .slice(0, 2)
                 .join('');
             const responsibleWithAvatar = responsibleName 
-                ? `<div class="user-info"><span class="user-avatar">${initials}</span><span>${responsibleName}</span></div>`
+                ? `<div class="user-info"><span class="user-avatar">${initials}</span><span class="user-name">${responsibleName}</span></div>`
                 : '';
             
             // Format date with time ago counter
@@ -810,7 +810,7 @@ $(document).ready(function() {
             const createdAt = client.created_at || (client.date ? client.date + ' 00:00:00' : null);
             const timeAgo = getTimeAgo(createdAt);
             const dateDisplay = timeAgo 
-                ? `${client.date}<span class="time-ago">${timeAgo}</span>`
+                ? `<div class="date-container"><span class="date-main">${client.date}</span><span class="time-ago">${timeAgo}</span></div>`
                 : client.date;
             
             // Title Case for client names
@@ -859,7 +859,7 @@ $(document).ready(function() {
                     <td title="${client.service}"><div class="truncate" style="max-width: 20ch;">${serviceBadge}</div></td>
                     <td>${formatCurrency(parseFloat(client.amount))}</td>
                     <td>${client.currency}</td>
-                    <td>${formatCurrency(parseFloat(client.paid_amount))}${progressBar}</td>
+                    <td><div class="paid-container">${formatCurrency(parseFloat(client.paid_amount))}${progressBar}</div></td>
                     <td>${formatCurrency(parseFloat(client.due_amount))}</td>
                     <td>${statusIndicator}</td>
                     <td>${actionButtons}</td>
