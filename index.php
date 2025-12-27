@@ -275,6 +275,174 @@ $initials = strtoupper(substr($first_name, 0, 2));
             .top-actions { flex-direction: column; align-items: stretch; }
             .summary-bar { flex-wrap: wrap; justify-content: center; }
         }
+
+        /* ========== ENHANCED STYLING WITH !IMPORTANT OVERRIDES ========== */
+        /* Status Badges - Enhanced with solid backgrounds and !important */
+        .status-indicator.status-not-paid, 
+        .status-badge.not-paid, 
+        .status-badge-not-paid {
+            background-color: #dc3545 !important;
+            color: white !important;
+            padding: 4px 12px !important;
+            border-radius: 20px !important;
+            font-size: 12px !important;
+            font-weight: 600 !important;
+            border: none !important;
+        }
+
+        .status-indicator.status-not-paid::before {
+            display: none !important;
+        }
+
+        .status-indicator.status-partially-paid,
+        .status-badge.partial, 
+        .status-badge-partial {
+            background-color: #ffc107 !important;
+            color: #212529 !important;
+            padding: 4px 12px !important;
+            border-radius: 20px !important;
+            font-size: 12px !important;
+            font-weight: 600 !important;
+            border: none !important;
+        }
+
+        .status-indicator.status-partially-paid::before {
+            display: none !important;
+        }
+
+        .status-indicator.status-paid,
+        .status-badge.paid, 
+        .status-badge-paid {
+            background-color: #28a745 !important;
+            color: white !important;
+            padding: 4px 12px !important;
+            border-radius: 20px !important;
+            font-size: 12px !important;
+            font-weight: 600 !important;
+            border: none !important;
+        }
+
+        .status-indicator.status-paid::before {
+            display: none !important;
+        }
+
+        /* Service Type Badges - Enhanced with solid backgrounds */
+        .service-badge.import, 
+        .service-badge-import {
+            background-color: #007bff !important;
+            color: white !important;
+            padding: 3px 10px !important;
+            border-radius: 4px !important;
+            font-size: 11px !important;
+            font-weight: 500 !important;
+            border: none !important;
+        }
+
+        .service-badge.export, 
+        .service-badge-export {
+            background-color: #6f42c1 !important;
+            color: white !important;
+            padding: 3px 10px !important;
+            border-radius: 4px !important;
+            font-size: 11px !important;
+            font-weight: 500 !important;
+            border: none !important;
+        }
+
+        .service-badge.customs,
+        .service-badge-customs {
+            background-color: #17a2b8 !important;
+            color: white !important;
+            padding: 3px 10px !important;
+            border-radius: 4px !important;
+            font-size: 11px !important;
+            font-weight: 500 !important;
+            border: none !important;
+        }
+
+        .service-badge.transport,
+        .service-badge-transport {
+            background-color: #fd7e14 !important;
+            color: white !important;
+            padding: 3px 10px !important;
+            border-radius: 4px !important;
+            font-size: 11px !important;
+            font-weight: 500 !important;
+            border: none !important;
+        }
+
+        /* Bold Amount and Due columns */
+        td.amount-column, 
+        td.due-column,
+        .enhanced-table tbody td:nth-child(9), 
+        .enhanced-table tbody td:nth-child(12) {
+            font-weight: 700 !important;
+            color: #212529 !important;
+        }
+
+        /* Zebra striping - Enhanced */
+        .enhanced-table tbody tr:nth-child(even),
+        #clientTable tbody tr:nth-child(even) {
+            background-color: #f8f9fa !important;
+        }
+
+        /* Row hover - Enhanced */
+        .enhanced-table tbody tr:hover,
+        #clientTable tbody tr:hover {
+            background-color: #e3f2fd !important;
+            box-shadow: inset 0 0 0 1px rgba(33, 150, 243, 0.3) !important;
+        }
+
+        /* Quick filter chips - Enhanced */
+        .filter-chip {
+            display: inline-flex !important;
+            align-items: center !important;
+            padding: 8px 16px !important;
+            margin: 0 4px !important;
+            border-radius: 20px !important;
+            background-color: #e9ecef !important;
+            color: #495057 !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+            border: 2px solid transparent !important;
+            font-weight: 500 !important;
+        }
+
+        .filter-chip.active {
+            background-color: #007bff !important;
+            color: white !important;
+            border-color: #0056b3 !important;
+            box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3) !important;
+        }
+
+        .filter-chip:hover {
+            background-color: #007bff !important;
+            color: white !important;
+            border-color: #0056b3 !important;
+            transform: translateY(-1px) !important;
+        }
+
+        .filter-chip .count {
+            margin-left: 8px !important;
+            padding: 2px 8px !important;
+            background-color: rgba(255, 255, 255, 0.3) !important;
+            border-radius: 12px !important;
+            font-size: 11px !important;
+            font-weight: 600 !important;
+        }
+
+        /* Export buttons styling */
+        .btn-group button,
+        .action-group button {
+            font-weight: 500 !important;
+            transition: all 0.2s ease !important;
+        }
+
+        .btn-group button:hover,
+        .action-group button:hover {
+            transform: translateY(-1px) !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+        }
     </style>
 </head>
 <body>
@@ -678,10 +846,56 @@ $(document).ready(function() {
             `;
         });
         tableBody.html(rowsHtml);
+        
+        // Apply search restriction if search is active
+        applySearchRestriction();
+        
         updateSummaryBarForFilteredView();
         updateStatusCounts(clients);
         updateTableSummary(clients);
         updatePaginationInfo(clients.length);
+    }
+
+    /**
+     * Search restriction feature - hides rows containing special characters when search is active
+     */
+    function containsSpecialChars(str) {
+        if (!str) return false;
+        const specialCharsRegex = /[@#$%^&*!~`+=\[\]{}|\\<>]/;
+        return specialCharsRegex.test(str);
+    }
+
+    function isRowSearchable(row) {
+        // Check all cells in the row
+        const cells = $(row).find('td');
+        for (let i = 0; i < cells.length; i++) {
+            const cellText = $(cells[i]).text();
+            if (containsSpecialChars(cellText)) {
+                return false; // Row is not searchable
+            }
+        }
+        return true;
+    }
+
+    function applySearchRestriction() {
+        const searchTerm = $('#search').val().trim();
+        
+        // Only apply restriction when there's an active search
+        if (searchTerm) {
+            const rows = $('#clientTable tbody tr');
+            rows.each(function() {
+                const row = $(this);
+                // Skip if it's a "no data" row
+                if (row.find('td').length === 1 && row.find('td').attr('colspan')) {
+                    return;
+                }
+                
+                // Hide non-searchable rows when search is active
+                if (!isRowSearchable(this)) {
+                    row.hide();
+                }
+            });
+        }
     }
     
     // New function to update status counts in filter chips
