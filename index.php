@@ -805,7 +805,9 @@ $(document).ready(function() {
                 : '';
             
             // Format date with time ago counter
-            const createdAt = client.created_at || client.date;
+            // Use created_at if available, otherwise use date field
+            // Ensure proper date format for JavaScript Date constructor
+            const createdAt = client.created_at || (client.date ? client.date + ' 00:00:00' : null);
             const timeAgo = getTimeAgo(createdAt);
             const dateDisplay = timeAgo 
                 ? `${client.date}<span class="time-ago">${timeAgo}</span>`
@@ -851,14 +853,14 @@ $(document).ready(function() {
                     <td>${index + 1}</td>
                     <td title="${client.reg_no}"><div class="truncate" style="max-width: 10ch;">${client.reg_no}</div></td>
                     <td title="${client.client_name}"><div class="truncate" style="max-width: 25ch;">${clientNameTitleCase}</div></td>
-                    <td style="white-space: nowrap;">${dateDisplay}</td>
-                    <td style="white-space: nowrap;">${responsibleWithAvatar}</td>
+                    <td>${dateDisplay}</td>
+                    <td>${responsibleWithAvatar}</td>
                     <td>${client.TIN || ''}</td>
                     <td title="${client.service}"><div class="truncate" style="max-width: 20ch;">${serviceBadge}</div></td>
-                    <td style="white-space: nowrap;">${formatCurrency(parseFloat(client.amount))}</td>
+                    <td>${formatCurrency(parseFloat(client.amount))}</td>
                     <td>${client.currency}</td>
-                    <td style="white-space: nowrap;">${formatCurrency(parseFloat(client.paid_amount))}${progressBar}</td>
-                    <td style="white-space: nowrap;">${formatCurrency(parseFloat(client.due_amount))}</td>
+                    <td>${formatCurrency(parseFloat(client.paid_amount))}${progressBar}</td>
+                    <td>${formatCurrency(parseFloat(client.due_amount))}</td>
                     <td>${statusIndicator}</td>
                     <td>${actionButtons}</td>
                 </tr>
