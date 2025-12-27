@@ -378,6 +378,27 @@ $initials = strtoupper(substr($first_name, 0, 2));
         <!-- Filter Section -->
         <div class="form-section mx-8 mb-6">
             <h3>Filter & Search</h3>
+            
+            <!-- Quick Filter Chips -->
+            <div class="filter-chips" id="quickFilters">
+                <div class="filter-chip active" data-status="">
+                    <span>All</span>
+                    <span class="count" id="count-all">0</span>
+                </div>
+                <div class="filter-chip" data-status="NOT PAID">
+                    <span>Not Paid</span>
+                    <span class="count" id="count-not-paid">0</span>
+                </div>
+                <div class="filter-chip" data-status="PARTIALLY PAID">
+                    <span>Partially Paid</span>
+                    <span class="count" id="count-partial">0</span>
+                </div>
+                <div class="filter-chip" data-status="PAID">
+                    <span>Paid</span>
+                    <span class="count" id="count-paid">0</span>
+                </div>
+            </div>
+            
             <div id="filterContainer" class="form-grid-horizontal">
                 <div class="form-group"><label for="search" class="form-label">Search</label><input type="text" id="search" class="form-control" placeholder="Reg No, Name, Phone..."></div>
                 <div class="form-group"><label for="filterDateFrom" class="form-label">From</label><input type="date" id="filterDateFrom" class="form-control"></div>
@@ -389,17 +410,55 @@ $initials = strtoupper(substr($first_name, 0, 2));
     
         <!-- Data Table -->
         <div class="full-width-table-container">
+            <!-- Bulk Actions Bar -->
+            <div class="bulk-actions-bar mx-8" id="bulkActionsBar">
+                <div class="bulk-actions-info">
+                    <span id="selectedCount">0</span> items selected
+                </div>
+                <div class="bulk-actions-buttons">
+                    <button class="btn btn-secondary btn-sm" id="bulkExportBtn">Export Selected</button>
+                    <button class="btn btn-danger btn-sm" id="bulkDeleteBtn">Delete Selected</button>
+                    <button class="btn btn-secondary btn-sm" id="clearSelectionBtn">Clear Selection</button>
+                </div>
+            </div>
+            
             <div class="enhanced-card table-card">
                 <div class="table-responsive-wrapper">
                     <table id="clientTable" class="enhanced-table">
                         <thead>
                             <tr>
-                                <th>#</th><th>Reg No</th><th>Client Name</th><th>Date</th><th>Responsible</th><th>TIN</th><th>Service</th><th>Amount</th>
-                                <th>Currency</th><th>Paid</th><th>Due</th><th>Status</th><th>Actions</th>
+                                <th><input type="checkbox" class="bulk-checkbox" id="selectAllCheckbox" title="Select All"></th>
+                                <th>#</th>
+                                <th class="sortable" data-column="reg_no">Reg No</th>
+                                <th class="sortable" data-column="client_name">Client Name</th>
+                                <th class="sortable" data-column="date">Date</th>
+                                <th>Responsible</th>
+                                <th>TIN</th>
+                                <th>Service</th>
+                                <th class="sortable" data-column="amount">Amount</th>
+                                <th>Currency</th>
+                                <th class="sortable" data-column="paid_amount">Paid</th>
+                                <th class="sortable" data-column="due_amount">Due</th>
+                                <th class="sortable" data-column="status">Status</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
+                        <tfoot id="tableSummary" style="display: none;">
+                            <tr>
+                                <td colspan="8" style="text-align: right; padding-right: 1rem;">TOTALS:</td>
+                                <td id="totalAmount">0.00</td>
+                                <td></td>
+                                <td id="totalPaid">0.00</td>
+                                <td id="totalDue">0.00</td>
+                                <td colspan="2"></td>
+                            </tr>
+                        </tfoot>
                     </table>
+                </div>
+                <!-- Pagination Info -->
+                <div class="pagination-info" id="paginationInfo">
+                    Showing <span id="showingStart">0</span>-<span id="showingEnd">0</span> of <span id="totalRecords">0</span> records
                 </div>
             </div>
         </div>
@@ -503,12 +562,13 @@ $(document).ready(function() {
         cancelEditing();
         const tableBody = $('#clientTable tbody');
         if (!clients || !Array.isArray(clients)) {
-            tableBody.html('<tr><td colspan="12" class="text-center p-8">Could not load client data.</td></tr>');
+            tableBody.html('<tr><td colspan="14" class="text-center p-8">Could not load client data.</td></tr>');
             return;
         }
         if (clients.length === 0) {
-            tableBody.html('<tr><td colspan="12" class="text-center p-8">No clients found matching your criteria.</td></tr>');
+            tableBody.html('<tr><td colspan="14" class="text-center p-8">No clients found matching your criteria.</td></tr>');
             updateSummaryBarForFilteredView();
+            updateStatusCounts(clients);
             return;
         }
 
@@ -516,6 +576,61 @@ $(document).ready(function() {
         clients.forEach((client, index) => {
             const statusClass = client.status.toLowerCase().replace(/ /g, '-');
             const statusIndicator = `<span class="status-indicator status-${statusClass}">${client.status}</span>`;
+            
+            // Calculate payment progress percentage
+            const amount = parseFloat(client.amount) || 0;
+            const paidAmount = parseFloat(client.paid_amount) || 0;
+            const progressPercent = amount > 0 ? Math.round((paidAmount / amount) * 100) : 0;
+            const progressClass = progressPercent === 100 ? 'complete' : (progressPercent > 0 ? 'partial' : 'none');
+            const progressBar = `
+                <div class="payment-progress" title="${progressPercent}% paid">
+                    <div class="payment-progress-bar ${progressClass}" style="width: ${progressPercent}%"></div>
+                </div>
+            `;
+            
+            // Service type badge
+            const serviceText = (client.service || '').toLowerCase();
+            let serviceBadgeClass = '';
+            if (serviceText.includes('import')) serviceBadgeClass = 'import';
+            else if (serviceText.includes('export')) serviceBadgeClass = 'export';
+            else if (serviceText.includes('customs')) serviceBadgeClass = 'customs';
+            else if (serviceText.includes('transport')) serviceBadgeClass = 'transport';
+            
+            const serviceBadge = serviceBadgeClass 
+                ? `<span class="service-badge ${serviceBadgeClass}">${client.service}</span>`
+                : client.service;
+            
+            // Generate initials for responsible person
+            const responsibleName = client.Responsible || client.phone_number || '';
+            const initials = responsibleName.split(' ')
+                .map(word => word.charAt(0).toUpperCase())
+                .slice(0, 2)
+                .join('');
+            const responsibleWithAvatar = responsibleName 
+                ? `<div class="user-info"><span class="user-avatar">${initials}</span><span>${responsibleName}</span></div>`
+                : '';
+            
+            // Format date with relative time
+            const dateObj = new Date(client.date);
+            const today = new Date();
+            const diffTime = Math.abs(today - dateObj);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            let relativeDate = '';
+            if (diffDays === 0) relativeDate = 'Today';
+            else if (diffDays === 1) relativeDate = 'Yesterday';
+            else if (diffDays <= 7) relativeDate = `${diffDays} days ago`;
+            
+            const dateDisplay = relativeDate 
+                ? `${client.date}<span class="relative-date">${relativeDate}</span>`
+                : client.date;
+            
+            // Title Case for client names
+            const clientNameTitleCase = client.client_name
+                .toLowerCase()
+                .split(' ')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+            
             // Conditional receipt link based on paid amount
             const receiptLink = parseFloat(client.paid_amount) > 0 
                 ? `<a href="#" class="print-link" data-type="receipt"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 15v-1a4 4 0 00-4-4H8m0 0l4 4m-4-4l4-4m-1 12H7a2 2 0 01-2-2V7a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V15a2 2 0 01-2 2z"></path></svg><span>Receipt</span></a>`
@@ -545,16 +660,17 @@ $(document).ready(function() {
 
             rowsHtml += `
                 <tr data-id="${client.id}">
+                    <td><input type="checkbox" class="bulk-checkbox row-checkbox" data-id="${client.id}"></td>
                     <td>${index + 1}</td>
                     <td title="${client.reg_no}"><div class="truncate" style="max-width: 10ch;">${client.reg_no}</div></td>
-                    <td title="${client.client_name}"><div class="truncate" style="max-width: 25ch;">${client.client_name}</div></td>
-                    <td>${client.date}</td>
-                    <td>${client.Responsible || client.phone_number || ''}</td>
+                    <td title="${client.client_name}"><div class="truncate" style="max-width: 25ch;">${clientNameTitleCase}</div></td>
+                    <td>${dateDisplay}</td>
+                    <td>${responsibleWithAvatar}</td>
                     <td>${client.TIN || ''}</td>
-                    <td title="${client.service}"><div class="truncate" style="max-width: 20ch;">${client.service}</div></td>
+                    <td title="${client.service}">${serviceBadge}</td>
                     <td>${formatCurrency(parseFloat(client.amount))}</td>
                     <td>${client.currency}</td>
-                    <td>${formatCurrency(parseFloat(client.paid_amount))}</td>
+                    <td>${formatCurrency(parseFloat(client.paid_amount))}${progressBar}</td>
                     <td>${formatCurrency(parseFloat(client.due_amount))}</td>
                     <td>${statusIndicator}</td>
                     <td>${actionButtons}</td>
@@ -563,7 +679,64 @@ $(document).ready(function() {
         });
         tableBody.html(rowsHtml);
         updateSummaryBarForFilteredView();
+        updateStatusCounts(clients);
+        updateTableSummary(clients);
+        updatePaginationInfo(clients.length);
     }
+    
+    // New function to update status counts in filter chips
+    function updateStatusCounts(clients) {
+        const counts = {
+            all: clients.length,
+            'NOT PAID': 0,
+            'PARTIALLY PAID': 0,
+            'PAID': 0
+        };
+        
+        clients.forEach(client => {
+            if (counts.hasOwnProperty(client.status)) {
+                counts[client.status]++;
+            }
+        });
+        
+        $('#count-all').text(counts.all);
+        $('#count-not-paid').text(counts['NOT PAID']);
+        $('#count-partial').text(counts['PARTIALLY PAID']);
+        $('#count-paid').text(counts['PAID']);
+    }
+    
+    // New function to update table summary/totals row
+    function updateTableSummary(clients) {
+        if (clients.length === 0) {
+            $('#tableSummary').hide();
+            return;
+        }
+        
+        let totalAmount = 0, totalPaid = 0, totalDue = 0;
+        const currencies = new Set();
+        
+        clients.forEach(client => {
+            totalAmount += parseFloat(client.amount) || 0;
+            totalPaid += parseFloat(client.paid_amount) || 0;
+            totalDue += parseFloat(client.due_amount) || 0;
+            currencies.add(client.currency);
+        });
+        
+        const currencyLabel = currencies.size === 1 ? Array.from(currencies)[0] : 'Mixed';
+        
+        $('#totalAmount').text(`${formatCurrency(totalAmount)} ${currencyLabel}`);
+        $('#totalPaid').text(`${formatCurrency(totalPaid)} ${currencyLabel}`);
+        $('#totalDue').text(`${formatCurrency(totalDue)} ${currencyLabel}`);
+        $('#tableSummary').show();
+    }
+    
+    // New function to update pagination info
+    function updatePaginationInfo(count) {
+        $('#showingStart').text(count > 0 ? 1 : 0);
+        $('#showingEnd').text(count);
+        $('#totalRecords').text(count);
+    }
+    
     
     function updateDashboardCards(stats) {
         $('#totalClients').text(stats.totalClients);
@@ -740,14 +913,30 @@ $(document).ready(function() {
         const row = $(this).closest('tr');
         row.data('originalHTML', row[0].outerHTML);
         const cells = row.children('td');
-        const clientData = {
-            reg_no: $(cells[1]).text(), client_name: $(cells[2]).text(), date: $(cells[3]).text(),
-            Responsible: $(cells[4]).text(), TIN: $(cells[5]).text(), service: $(cells[6]).text(), 
-            amount: $(cells[7]).text().replace(/,/g, ''), currency: $(cells[8]).text(), 
-            paid_amount: $(cells[9]).text().replace(/,/g, '')
+        
+        // Extract text content, handling nested elements
+        const getCleanText = (cell) => {
+            const $cell = $(cell);
+            // For cells with multiple elements, get the main text
+            const text = $cell.find('.truncate').text() || $cell.text();
+            return text.trim();
         };
+        
+        const clientData = {
+            reg_no: getCleanText(cells[2]),
+            client_name: getCleanText(cells[3]),
+            date: $(cells[4]).text().split('\n')[0].trim(), // Get date before relative date
+            Responsible: $(cells[5]).find('.user-info span:last-child').text().trim() || $(cells[5]).text().trim(),
+            TIN: $(cells[6]).text().trim(),
+            service: $(cells[7]).text().trim(),
+            amount: $(cells[8]).text().replace(/,/g, ''),
+            currency: $(cells[9]).text().trim(),
+            paid_amount: $(cells[10]).text().split('\n')[0].replace(/,/g, '') // Get amount before progress bar
+        };
+        
         const editRowHtml = `
-            <td class="p-2">${$(cells[0]).text()}</td>
+            <td class="p-2">${$(cells[0]).html()}</td>
+            <td class="p-2">${$(cells[1]).text()}</td>
             <td class="p-2"><input type="text" name="reg_no" class="form-control form-control-sm" value="${clientData.reg_no}"></td>
             <td class="p-2"><input type="text" name="client_name" class="form-control form-control-sm" value="${clientData.client_name}"></td>
             <td class="p-2"><input type="date" name="date" class="form-control form-control-sm" value="${clientData.date}"></td>
@@ -924,6 +1113,166 @@ $(document).ready(function() {
 
     $('#tinForm').on('submit', function(e) { e.preventDefault(); if (/^\d{9}$/.test($('#tin-number').val())) { window.open(`print_document.php?id=${$('#tin-clientId').val()}&type=${$('#tin-docType').val()}&tin=${$('#tin-number').val()}`, '_blank'); $('#tinModal').removeClass('show'); } else { $('.tin-error-message').text('Please enter exactly 9 digits.'); } });
     $('#closeTinModalBtn, #closeHistoryModalBtn').on('click', () => $('.enhanced-modal').removeClass('show'));
+
+    // --- Quick Filter Chips Handler ---
+    $('.filter-chip').on('click', function() {
+        $('.filter-chip').removeClass('active');
+        $(this).addClass('active');
+        const status = $(this).data('status');
+        $('#filterPaidStatus').val(status).trigger('change');
+    });
+
+    // --- Table Sorting Handler ---
+    let currentSort = { column: '', direction: 'asc' };
+    $('.sortable').on('click', function() {
+        const column = $(this).data('column');
+        
+        // Toggle direction if clicking same column
+        if (currentSort.column === column) {
+            currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+            currentSort.column = column;
+            currentSort.direction = 'asc';
+        }
+        
+        // Update visual indicators
+        $('.sortable').removeClass('asc desc');
+        $(this).addClass(currentSort.direction);
+        
+        // Sort the table rows
+        const tbody = $('#clientTable tbody');
+        const rows = tbody.find('tr').get();
+        
+        rows.sort(function(a, b) {
+            const cellIndex = $(`.sortable[data-column="${column}"]`).index();
+            let aVal = $(a).find('td').eq(cellIndex).text().trim();
+            let bVal = $(b).find('td').eq(cellIndex).text().trim();
+            
+            // Handle numeric values
+            if (column === 'amount' || column === 'paid_amount' || column === 'due_amount') {
+                aVal = parseFloat(aVal.replace(/,/g, '')) || 0;
+                bVal = parseFloat(bVal.replace(/,/g, '')) || 0;
+            }
+            // Handle dates
+            else if (column === 'date') {
+                aVal = new Date(aVal);
+                bVal = new Date(bVal);
+            }
+            
+            if (aVal < bVal) return currentSort.direction === 'asc' ? -1 : 1;
+            if (aVal > bVal) return currentSort.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+        
+        $.each(rows, function(index, row) {
+            tbody.append(row);
+            $(row).find('td').eq(1).text(index + 1); // Update row numbers
+        });
+    });
+
+    // --- Bulk Selection Handlers ---
+    $('#selectAllCheckbox').on('change', function() {
+        const isChecked = $(this).prop('checked');
+        $('.row-checkbox').prop('checked', isChecked);
+        updateBulkActionsBar();
+    });
+
+    $(document).on('change', '.row-checkbox', function() {
+        updateBulkActionsBar();
+        
+        // Update select all checkbox state
+        const totalCheckboxes = $('.row-checkbox').length;
+        const checkedCheckboxes = $('.row-checkbox:checked').length;
+        $('#selectAllCheckbox').prop('checked', totalCheckboxes === checkedCheckboxes && totalCheckboxes > 0);
+    });
+
+    function updateBulkActionsBar() {
+        const selectedCount = $('.row-checkbox:checked').length;
+        $('#selectedCount').text(selectedCount);
+        
+        if (selectedCount > 0) {
+            $('#bulkActionsBar').addClass('show');
+        } else {
+            $('#bulkActionsBar').removeClass('show');
+        }
+    }
+
+    $('#clearSelectionBtn').on('click', function() {
+        $('.row-checkbox, #selectAllCheckbox').prop('checked', false);
+        updateBulkActionsBar();
+    });
+
+    $('#bulkExportBtn').on('click', function() {
+        const selectedIds = [];
+        $('.row-checkbox:checked').each(function() {
+            selectedIds.push($(this).data('id'));
+        });
+        
+        if (selectedIds.length === 0) {
+            showToast('No items selected', 'error');
+            return;
+        }
+        
+        showToast(`Exporting ${selectedIds.length} selected items...`);
+        // Here you would implement the actual export logic
+        // For now, we'll use the existing download functionality
+        $('#downloadExcelBtn').trigger('click');
+    });
+
+    $('#bulkDeleteBtn').on('click', function() {
+        const selectedIds = [];
+        $('.row-checkbox:checked').each(function() {
+            selectedIds.push($(this).data('id'));
+        });
+        
+        if (selectedIds.length === 0) {
+            showToast('No items selected', 'error');
+            return;
+        }
+        
+        showConfirm(() => {
+            showLoading(true);
+            let deleteCount = 0;
+            let errorCount = 0;
+            
+            // Delete each selected item
+            selectedIds.forEach((id, index) => {
+                $.ajax({
+                    url: 'delete_client.php',
+                    type: 'POST',
+                    data: { id: id },
+                    dataType: 'json',
+                    success: function(response) {
+                        if (response.success) {
+                            deleteCount++;
+                        } else {
+                            errorCount++;
+                        }
+                        
+                        // Check if all deletions are complete
+                        if (deleteCount + errorCount === selectedIds.length) {
+                            showLoading(false);
+                            if (deleteCount > 0) {
+                                showToast(`${deleteCount} items deleted successfully`);
+                                loadData();
+                            }
+                            if (errorCount > 0) {
+                                showToast(`Failed to delete ${errorCount} items`, 'error');
+                            }
+                            updateBulkActionsBar();
+                        }
+                    },
+                    error: function() {
+                        errorCount++;
+                        if (deleteCount + errorCount === selectedIds.length) {
+                            showLoading(false);
+                            showToast(`Failed to delete ${errorCount} items`, 'error');
+                        }
+                    }
+                });
+            });
+        });
+    });
 
     // --- Initial Load ---
     loadData(); // Initial data load
