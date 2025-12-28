@@ -1001,6 +1001,7 @@ require_once 'header.php';
                 }
             });
             elements.currencyFilter.value = currentVal;
+        };
         
         // --- Helper Functions ---
         const capitalize = (str) => str ? str.charAt(0).toUpperCase() + str.slice(1) : '';

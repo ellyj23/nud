@@ -1050,6 +1050,7 @@ require_once 'header.php';
             } else {
                 alert('Email functionality is loading. Please try again.');
             }
+        };
         
         // --- Helper Functions ---
         const escapeHtml = (str) => String(str || '').replace(/[&<>"']/g, m => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'})[m]);
