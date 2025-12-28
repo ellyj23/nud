@@ -16,6 +16,11 @@ try {
     // Determine if this is a search/filter request or an initial page load
     $isSearchOrFilter = !empty($_GET['searchQuery']) || !empty($_GET['filterDateFrom']) || !empty($_GET['filterDateTo']) || !empty($_GET['filterPaidStatus']) || !empty($_GET['filterCurrency']);
 
+    // Pagination parameters
+    $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+    $limit = isset($_GET['limit']) ? max(1, min(100, intval($_GET['limit']))) : 20; // Default 20, max 100
+    $offset = ($page - 1) * $limit;
+
     $response = ['success' => true];
 
     // --- PART 1: Fetch dashboard stats ONLY for the initial page load ---
@@ -109,13 +114,41 @@ try {
         $clientsSql .= " WHERE " . implode(" AND ", $where_clauses);
     }
 
+    // Count total records for pagination
+    $countSql = "SELECT COUNT(*) FROM clients";
+    if (!empty($where_clauses)) {
+        $countSql .= " WHERE " . implode(" AND ", $where_clauses);
+    }
+    $countStmt = $pdo->prepare($countSql);
+    $countStmt->execute($params);
+    $totalRecords = (int)$countStmt->fetchColumn();
+
     $clientsSql .= " ORDER BY date DESC, id DESC";
+    $clientsSql .= " LIMIT :limit OFFSET :offset";
 
     $clientsStmt = $pdo->prepare($clientsSql);
-    $clientsStmt->execute($params);
+    
+    // Bind all the regular parameters
+    foreach ($params as $key => $value) {
+        $clientsStmt->bindValue($key, $value);
+    }
+    
+    // Bind pagination parameters separately as integers
+    $clientsStmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $clientsStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    
+    $clientsStmt->execute();
     $clients = $clientsStmt->fetchAll(PDO::FETCH_ASSOC);
 
     $response['clients'] = $clients;
+    
+    // Add pagination information
+    $response['pagination'] = [
+        'current_page' => $page,
+        'per_page' => $limit,
+        'total_records' => $totalRecords,
+        'total_pages' => ceil($totalRecords / $limit)
+    ];
 
     // --- PART 3: Return the final JSON response ---
     echo json_encode($response);
