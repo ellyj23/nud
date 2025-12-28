@@ -2,6 +2,7 @@
 /**
  * Email Document Feature
  * Allows sending generated documents directly to recipient's email
+ * Uses PHPMailer with mail transport for reliable email delivery
  */
 
 session_start();
@@ -10,6 +11,11 @@ require_once 'fpdf/fpdf.php';
 require_once 'lib/QRCodeGenerator.php';
 require_once 'lib/BarcodeGenerator.php';
 require_once 'lib/EmailTemplates.php';
+require_once 'lib/PHPMailer/PHPMailer.php';
+require_once 'lib/PHPMailer/Exception.php';
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
 
 // Check authentication
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
@@ -73,65 +79,66 @@ try {
         'message' => $message
     ]);
     
-    // Email headers
-    $boundary = md5(time());
-    $headers = "From: Feza Logistics <no-reply@fezalogistics.com>\r\n";
-    $headers .= "Reply-To: $sender_email\r\n";
-    
-    // Add CC if provided
-    if (!empty($cc_emails)) {
-        $cc_list = array_map('trim', explode(',', $cc_emails));
-        $valid_cc = array_filter($cc_list, function($email) {
-            return filter_var($email, FILTER_VALIDATE_EMAIL);
-        });
-        if (!empty($valid_cc)) {
-            $headers .= "Cc: " . implode(', ', $valid_cc) . "\r\n";
-        }
-    }
-    
-    $headers .= "MIME-Version: 1.0\r\n";
-    $headers .= "Content-Type: multipart/mixed; boundary=\"{$boundary}\"\r\n";
-    
-    // Email body
-    $email_body = "--{$boundary}\r\n";
-    $email_body .= "Content-Type: text/html; charset=UTF-8\r\n";
-    $email_body .= "Content-Transfer-Encoding: 7bit\r\n\r\n";
-    $email_body .= $html_message . "\r\n\r\n";
-    
-    // Attach PDF
-    $email_body .= "--{$boundary}\r\n";
-    $email_body .= "Content-Type: application/pdf; name=\"{$filename}\"\r\n";
-    $email_body .= "Content-Transfer-Encoding: base64\r\n";
-    $email_body .= "Content-Disposition: attachment; filename=\"{$filename}\"\r\n\r\n";
-    $email_body .= chunk_split(base64_encode($pdf_content)) . "\r\n";
-    $email_body .= "--{$boundary}--";
-    
-    // Send email with retry mechanism
+    // Initialize PHPMailer
+    $mail = new PHPMailer(true);
     $mail_sent = false;
     $mail_error = '';
     $max_retries = 3;
     
     for ($attempt = 1; $attempt <= $max_retries; $attempt++) {
-        // Clear any previous errors
-        error_clear_last();
-        
-        // Attempt to send email
-        $mail_sent = @mail($recipient_email, $subject, $email_body, $headers);
-        
-        if ($mail_sent) {
-            break; // Success, exit retry loop
-        }
-        
-        // Get the last error if available
-        $last_error = error_get_last();
-        $mail_error = $last_error ? $last_error['message'] : 'Mail function returned false';
-        
-        // Log retry attempt
-        error_log("Email send attempt {$attempt}/{$max_retries} failed for {$recipient_email}: {$mail_error}");
-        
-        if ($attempt < $max_retries) {
-            // Wait before retrying (exponential backoff)
-            usleep($attempt * 500000); // 0.5s, 1s, 1.5s
+        try {
+            // Use PHP's mail() function - sends directly from server
+            $mail->isMail();
+            
+            // Server settings
+            $mail->CharSet = 'UTF-8';
+            $mail->Encoding = 'base64';
+            
+            // Recipients
+            $mail->setFrom('no-reply@fezalogistics.com', 'Feza Logistics');
+            $mail->addReplyTo($sender_email, $sender_name);
+            $mail->addAddress($recipient_email, $recipient_name);
+            
+            // Add CC if provided
+            if (!empty($cc_emails)) {
+                $cc_list = array_map('trim', explode(',', $cc_emails));
+                $valid_cc = array_filter($cc_list, function($email) {
+                    return filter_var($email, FILTER_VALIDATE_EMAIL);
+                });
+                foreach ($valid_cc as $cc_email) {
+                    $mail->addCC($cc_email);
+                }
+            }
+            
+            // Content
+            $mail->isHTML(true);
+            $mail->Subject = $subject;
+            $mail->Body = $html_message;
+            $mail->AltBody = strip_tags($message);
+            
+            // Attach PDF from string
+            $mail->addStringAttachment($pdf_content, $filename, 'base64', 'application/pdf');
+            
+            // Send email
+            $mail_sent = $mail->send();
+            
+            if ($mail_sent) {
+                break; // Success, exit retry loop
+            }
+            
+        } catch (Exception $e) {
+            $mail_error = $mail->ErrorInfo;
+            error_log("Email send attempt {$attempt}/{$max_retries} failed for {$recipient_email}: {$mail_error}");
+            
+            if ($attempt < $max_retries) {
+                // Clear recipients for retry
+                $mail->clearAddresses();
+                $mail->clearCCs();
+                $mail->clearAttachments();
+                
+                // Wait before retrying (exponential backoff)
+                usleep($attempt * 500000); // 0.5s, 1s, 1.5s
+            }
         }
     }
     

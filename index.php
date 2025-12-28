@@ -516,6 +516,62 @@ $initials = strtoupper(substr($first_name, 0, 2));
             white-space: nowrap !important;
             display: inline-flex !important;
         }
+        
+        /* ========== PAGINATION STYLES ========== */
+        .pagination-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: var(--space-4);
+            padding: var(--space-4);
+            background: var(--bg-primary);
+            border-radius: var(--radius-base);
+        }
+        
+        .pagination-info {
+            font-size: var(--font-size-sm);
+            color: var(--text-muted);
+        }
+        
+        .pagination-controls {
+            display: flex;
+            gap: var(--space-2);
+            align-items: center;
+        }
+        
+        .pagination-btn {
+            padding: 8px 12px;
+            border: 1px solid var(--border-primary);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .pagination-btn:hover:not(:disabled) {
+            background: var(--primary-500);
+            color: white;
+            border-color: var(--primary-500);
+        }
+        
+        .pagination-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .pagination-btn.active {
+            background: var(--primary-500);
+            color: white;
+            border-color: var(--primary-500);
+        }
+        
+        .pagination-ellipsis {
+            padding: 8px 4px;
+            color: var(--text-muted);
+        }
     </style>
 </head>
 <body>
@@ -697,9 +753,14 @@ $initials = strtoupper(substr($first_name, 0, 2));
                         </tfoot>
                     </table>
                 </div>
-                <!-- Pagination Info -->
-                <div class="pagination-info" id="paginationInfo">
-                    Showing <span id="showingStart">0</span>-<span id="showingEnd">0</span> of <span id="totalRecords">0</span> records
+                <!-- Pagination Controls -->
+                <div class="pagination-container">
+                    <div class="pagination-info" id="paginationInfo">
+                        Showing <span id="showingStart">0</span>-<span id="showingEnd">0</span> of <span id="totalRecords">0</span> records
+                    </div>
+                    <div class="pagination-controls" id="paginationControls">
+                        <!-- Pagination buttons will be inserted here by JavaScript -->
+                    </div>
                 </div>
             </div>
         </div>
@@ -718,6 +779,10 @@ $(document).ready(function() {
     // --- Global State ---
     let dashboardStatsInterval, summaryBarInterval;
     let currencySummaries = {};
+    let currentPage = 1;
+    let totalPages = 1;
+    let totalRecords = 0;
+    let perPage = 20;
 
     // --- Helper Functions ---
     const showLoading = (show) => $('#loading-overlay').toggleClass('show', show);
@@ -798,7 +863,9 @@ $(document).ready(function() {
             filterDateFrom: $('#filterDateFrom').val(), 
             filterDateTo: $('#filterDateTo').val(), 
             filterPaidStatus: $('#filterPaidStatus').val(), 
-            filterCurrency: $('#filterCurrency').val() 
+            filterCurrency: $('#filterCurrency').val(),
+            page: currentPage,
+            limit: perPage
         };
 
         $.ajax({
@@ -809,6 +876,16 @@ $(document).ready(function() {
             success: function(response) {
                 if (response.success) {
                     renderTable(response.clients);
+                    
+                    // Update pagination state
+                    if (response.pagination) {
+                        currentPage = response.pagination.current_page;
+                        totalPages = response.pagination.total_pages;
+                        totalRecords = response.pagination.total_records;
+                        perPage = response.pagination.per_page;
+                        renderPagination();
+                    }
+                    
                     // Stats are only returned on the initial load (when no filters are active).
                     // This prevents cards from updating on every search keystroke.
                     if (response.stats) {
@@ -841,6 +918,8 @@ $(document).ready(function() {
 
         let rowsHtml = '';
         clients.forEach((client, index) => {
+            // Calculate row number based on current page
+            const rowNumber = (currentPage - 1) * perPage + index + 1;
             const statusClass = client.status.toLowerCase().replace(/ /g, '-');
             const statusIndicator = `<span class="status-indicator status-${statusClass}">${client.status}</span>`;
             
@@ -923,7 +1002,7 @@ $(document).ready(function() {
             rowsHtml += `
                 <tr data-id="${client.id}">
                     <td><input type="checkbox" class="bulk-checkbox row-checkbox" data-id="${client.id}"></td>
-                    <td>${index + 1}</td>
+                    <td>${rowNumber}</td>
                     <td title="${client.reg_no}"><div class="truncate" style="max-width: 10ch;">${client.reg_no}</div></td>
                     <td title="${client.client_name}"><div class="truncate" style="max-width: 25ch;">${clientNameTitleCase}</div></td>
                     <td>${dateDisplay}</td>
@@ -947,7 +1026,7 @@ $(document).ready(function() {
         updateSummaryBarForFilteredView();
         updateStatusCounts(clients);
         updateTableSummary(clients);
-        updatePaginationInfo(clients.length);
+        // Pagination info is updated in loadData after receiving pagination data
     }
 
     /**
@@ -1038,11 +1117,109 @@ $(document).ready(function() {
         $('#tableSummary').show();
     }
     
-    // New function to update pagination info
-    function updatePaginationInfo(count) {
-        $('#showingStart').text(count > 0 ? 1 : 0);
-        $('#showingEnd').text(count);
-        $('#totalRecords').text(count);
+    // Function to update pagination info
+    function updatePaginationInfo() {
+        const start = totalRecords > 0 ? (currentPage - 1) * perPage + 1 : 0;
+        const end = Math.min(currentPage * perPage, totalRecords);
+        $('#showingStart').text(start);
+        $('#showingEnd').text(end);
+        $('#totalRecords').text(totalRecords);
+    }
+    
+    // Function to render pagination controls
+    function renderPagination() {
+        updatePaginationInfo();
+        const paginationControls = $('#paginationControls');
+        paginationControls.empty();
+        
+        if (totalPages <= 1) {
+            return; // Don't show pagination if only one page
+        }
+        
+        // Previous button
+        const prevBtn = $('<button>')
+            .addClass('pagination-btn')
+            .text('Previous')
+            .prop('disabled', currentPage === 1)
+            .on('click', () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    loadData();
+                }
+            });
+        paginationControls.append(prevBtn);
+        
+        // Page numbers with ellipsis
+        const maxButtons = 7; // Max page buttons to show
+        let startPage = Math.max(1, currentPage - 2);
+        let endPage = Math.min(totalPages, currentPage + 2);
+        
+        // Adjust range if at the start or end
+        if (currentPage <= 3) {
+            endPage = Math.min(totalPages, maxButtons);
+        } else if (currentPage >= totalPages - 2) {
+            startPage = Math.max(1, totalPages - maxButtons + 1);
+        }
+        
+        // First page
+        if (startPage > 1) {
+            const firstBtn = $('<button>')
+                .addClass('pagination-btn')
+                .text('1')
+                .on('click', () => {
+                    currentPage = 1;
+                    loadData();
+                });
+            paginationControls.append(firstBtn);
+            
+            if (startPage > 2) {
+                paginationControls.append($('<span>').addClass('pagination-ellipsis').text('...'));
+            }
+        }
+        
+        // Page numbers
+        for (let i = startPage; i <= endPage; i++) {
+            const pageBtn = $('<button>')
+                .addClass('pagination-btn')
+                .text(i)
+                .toggleClass('active', i === currentPage)
+                .on('click', (function(page) {
+                    return function() {
+                        currentPage = page;
+                        loadData();
+                    };
+                })(i));
+            paginationControls.append(pageBtn);
+        }
+        
+        // Last page
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                paginationControls.append($('<span>').addClass('pagination-ellipsis').text('...'));
+            }
+            
+            const lastBtn = $('<button>')
+                .addClass('pagination-btn')
+                .text(totalPages)
+                .on('click', () => {
+                    currentPage = totalPages;
+                    loadData();
+                });
+            paginationControls.append(lastBtn);
+        }
+        
+        // Next button
+        const nextBtn = $('<button>')
+            .addClass('pagination-btn')
+            .text('Next')
+            .prop('disabled', currentPage === totalPages)
+            .on('click', () => {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    loadData();
+                }
+            });
+        paginationControls.append(nextBtn);
     }
     
     
@@ -1303,10 +1480,12 @@ $(document).ready(function() {
     let debounceTimer;
     $('#filterContainer input, #filterContainer select').on('change keyup', function() {
         clearTimeout(debounceTimer);
+        currentPage = 1; // Reset to first page when filters change
         debounceTimer = setTimeout(() => loadData(), 400); // Call the main data load function on any filter change
     });
     $('#viewAllBtn').on('click', () => { 
         $('#filterContainer').find('input, select').val(''); 
+        currentPage = 1; // Reset to first page
         loadData(); // Reloads all data without filters
     });
     

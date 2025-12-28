@@ -19,6 +19,11 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
 require_once 'db.php';
 
 try {
+    // Pagination parameters
+    $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+    $limit = isset($_GET['limit']) ? max(1, min(100, intval($_GET['limit']))) : 20; // Default 20, max 100
+    $offset = ($page - 1) * $limit;
+    
     // Build SQL query with filters including new fields
     $sql = "SELECT pc.id, pc.user_id, pc.transaction_date, pc.description, pc.beneficiary, pc.purpose,
                    pc.amount, pc.transaction_type, pc.category_id, pc.payment_method, pc.reference,
@@ -72,17 +77,72 @@ try {
         }
     }
     
+    // Count total records for pagination
+    $countSql = "SELECT COUNT(*) FROM petty_cash pc WHERE 1=1";
+    $countParams = [];
+    
+    if (!empty($_GET['from'])) {
+        $countSql .= " AND DATE(pc.transaction_date) >= :from";
+        $countParams[':from'] = $_GET['from'];
+    }
+    if (!empty($_GET['to'])) {
+        $countSql .= " AND DATE(pc.transaction_date) <= :to";
+        $countParams[':to'] = $_GET['to'];
+    }
+    if (!empty($_GET['type']) && $_GET['type'] !== 'all') {
+        $countSql .= " AND pc.transaction_type = :type";
+        $countParams[':type'] = $_GET['type'];
+    }
+    if (!empty(trim($_GET['q']))) {
+        $searchQuery = '%' . trim($_GET['q']) . '%';
+        $countSql .= " AND (pc.description LIKE :searchQuery1 
+                      OR pc.reference LIKE :searchQuery2 
+                      OR pc.payment_method LIKE :searchQuery3
+                      OR DATE_FORMAT(pc.transaction_date, '%Y-%m-%d') LIKE :searchQuery4
+                      OR DATE_FORMAT(pc.transaction_date, '%d/%m/%Y') LIKE :searchQuery5)";
+        
+        for ($i = 1; $i <= 5; $i++) {
+            $countParams[":searchQuery{$i}"] = $searchQuery;
+        }
+        
+        if (is_numeric(trim($_GET['q']))) {
+            $countSql .= " OR pc.amount = :searchQueryNumeric";
+            $countParams[':searchQueryNumeric'] = (float)trim($_GET['q']);
+        }
+    }
+    
+    $countStmt = $pdo->prepare($countSql);
+    $countStmt->execute($countParams);
+    $totalRecords = (int)$countStmt->fetchColumn();
+    
     // Order by date descending (newest first)
     $sql .= " ORDER BY pc.transaction_date DESC, pc.id DESC";
+    $sql .= " LIMIT :limit OFFSET :offset";
     
     // Execute query
     $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
+    
+    // Bind all the regular parameters
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value);
+    }
+    
+    // Bind pagination parameters separately as integers
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    
+    $stmt->execute();
     $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     echo json_encode([
         'success' => true,
-        'data' => $transactions
+        'data' => $transactions,
+        'pagination' => [
+            'current_page' => $page,
+            'per_page' => $limit,
+            'total_records' => $totalRecords,
+            'total_pages' => ceil($totalRecords / $limit)
+        ]
     ]);
     
 } catch (PDOException $e) {
