@@ -61,8 +61,13 @@ try {
     $params = [];
     $where_clauses = [];
 
+    // Check if search or any filter is active
+    $isSearchActive = !empty($_GET['searchQuery']);
+    $isFilterActive = !empty($_GET['filterDateFrom']) || !empty($_GET['filterDateTo']) || 
+                      !empty($_GET['filterPaidStatus']) || !empty($_GET['filterCurrency']);
+
     // **FIXED**: Use unique named placeholders for the search query to prevent "Invalid parameter number" error.
-    if (!empty($_GET['searchQuery'])) {
+    if ($isSearchActive) {
         $searchQuery = '%' . trim($_GET['searchQuery']) . '%';
         // Search by reg_no, client_name, Responsible, and TIN
         $where_clauses[] = "(reg_no LIKE :searchQuery1 OR client_name LIKE :searchQuery2 OR Responsible LIKE :searchQuery3 OR TIN LIKE :searchQuery4)";
@@ -70,10 +75,12 @@ try {
         $params[':searchQuery2'] = $searchQuery;
         $params[':searchQuery3'] = $searchQuery;
         $params[':searchQuery4'] = $searchQuery;
-        
-        // 24-hour delay filter for JOSIEPH records during search
-        // Hide JOSIEPH records created less than 24 hours ago when searching
-        $where_clauses[] = "(UPPER(Responsible) NOT LIKE '%JOSIEPH%' OR created_at IS NULL OR created_at <= DATE_SUB(NOW(), INTERVAL 24 HOUR))";
+    }
+    
+    // 24-hour delay filter for JOSEPH records during search/filter
+    // Hide JOSEPH records created less than 24 hours ago when searching or filtering
+    if ($isSearchActive || $isFilterActive) {
+        $where_clauses[] = "(UPPER(Responsible) NOT LIKE '%JOSEPH%' OR created_at IS NULL OR created_at <= DATE_SUB(NOW(), INTERVAL 24 HOUR))";
     }
     
     if (!empty($_GET['filterDateFrom'])) {
