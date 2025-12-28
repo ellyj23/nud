@@ -522,10 +522,11 @@
 
 .enhanced-table th,
 .enhanced-table td {
-  padding: 1rem 1rem; /* Increased vertical padding to 16px (1rem) */
+  padding: 0.75rem 1rem; /* Reduced vertical padding for closer spacing */
   text-align: left;
   border-bottom: 1px solid var(--border-primary);
   vertical-align: middle;
+  white-space: nowrap; /* Prevent text wrapping - single line display */
 }
 
 .enhanced-table th {
@@ -880,34 +881,32 @@
 
 /* Time ago counter specific styling */
 .time-ago {
-  font-size: 0.7rem;
+  font-size: 0.65rem; /* Very small font size */
   color: var(--text-muted);
   font-style: italic;
   font-weight: var(--font-weight-bold);
   display: block;
-  margin-top: 0.25rem;
+  margin-top: 0.15rem;
+  line-height: 1;
 }
 
 /* Date container for wrapping date and time-ago */
 .date-container {
-  display: inline-block;
-  white-space: normal; /* Allow internal wrapping for time-ago */
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  white-space: nowrap; /* Keep date on single line */
 }
 
 .date-main {
-  display: block;
   white-space: nowrap;
+  line-height: 1.2;
 }
 
-/* Single-line table cell styling */
-.enhanced-table td {
-  white-space: nowrap;
-}
-
-/* But allow specific elements to wrap internally */
-.enhanced-table td .date-container,
-.enhanced-table td .paid-container {
-  white-space: normal;
+/* Single-line table cell styling - already set on th/td above */
+/* Allow specific containers to have vertical flex layout */
+.enhanced-table td .date-container {
+  white-space: nowrap; /* Override to keep everything single line horizontally */
 }
 
 .paid-container {
@@ -922,12 +921,13 @@
   display: inline-block;
 }
 
-/* Horizontal layout for user info (avatar + name) */
+/* Horizontal layout for user info (avatar + name) - avatar LEFT, name RIGHT */
 .user-info {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   white-space: nowrap;
+  flex-direction: row; /* Explicitly set to horizontal layout */
 }
 
 /* Enable horizontal scrolling for table */
