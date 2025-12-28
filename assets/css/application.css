@@ -905,8 +905,8 @@
 
 /* Date container for vertical stacking of date and time-ago */
 .date-container {
-  display: inline-block !important;
-  flex-direction: column; /* Stack date and time-ago vertically */
+  display: inline-flex !important;
+  flex-direction: column !important; /* Stack date and time-ago vertically */
   gap: 0.15rem;
   white-space: nowrap !important;
 }

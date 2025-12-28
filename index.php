@@ -473,7 +473,8 @@ $initials = strtoupper(substr($first_name, 0, 2));
 
         /* 3. Fix Date column - Date on one line, time-ago below */
         .date-container {
-            display: inline-block !important;
+            display: inline-flex !important;
+            flex-direction: column !important;
             white-space: nowrap !important;
         }
 
@@ -506,11 +507,6 @@ $initials = strtoupper(substr($first_name, 0, 2));
         /* 5. Ensure all nested elements don't wrap */
         #clientTable td *,
         .enhanced-table td * {
-            white-space: nowrap !important;
-        }
-
-        /* Exception only for time-ago which should be on its own line below date */
-        .time-ago {
             white-space: nowrap !important;
         }
 
