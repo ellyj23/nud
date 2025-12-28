@@ -337,6 +337,11 @@ switch ($doc_type) {
             $pdf->Cell(0, 5, 'Prepared by: Automated System', 0, 1);
         }
         
+        // Prepare file name and document number
+        $file_name_prefix = ucfirst($doc_type);
+        $file_name_number = $doc_type === 'quotation' ? $doc['quote_number'] : $doc['invoice_number'];
+        $file_name = "{$file_name_prefix}-{$file_name_number}.pdf";
+        
         // Register document in verification system
         $docVerification = new DocumentVerification($pdo);
         $docVerification->registerDocument([
@@ -354,9 +359,6 @@ switch ($doc_type) {
             ]
         ]);
         
-        $file_name_prefix = ucfirst($doc_type);
-        $file_name_number = $doc_type === 'quotation' ? $doc['quote_number'] : $doc['invoice_number'];
-        $file_name = "{$file_name_prefix}-{$file_name_number}.pdf";
         break;
 
     case 'receipt':
