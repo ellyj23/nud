@@ -22,3 +22,5 @@ table-ux-demo.html
 # OS files
 .DS_Store
 Thumbs.db
+vendor/
+composer.lock
