@@ -210,6 +210,53 @@ require_once 'header.php';
         animation: fade-in 0.3s ease forwards;
     }
     @keyframes fade-in { to { opacity: 1; } }
+    
+    /* Pagination styles */
+    .pagination-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 24px;
+        border-top: 1px solid var(--border-color);
+    }
+    .pagination-info {
+        font-size: 14px;
+        color: var(--text-secondary);
+    }
+    .pagination-controls {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    .pagination-btn {
+        padding: 8px 12px;
+        border: 1px solid var(--border-color);
+        background: var(--bg-card);
+        color: var(--text-primary);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: all var(--transition-speed);
+        font-size: 14px;
+        font-weight: 500;
+    }
+    .pagination-btn:hover:not(:disabled) {
+        background: var(--accent-primary);
+        color: white;
+        border-color: var(--accent-primary);
+    }
+    .pagination-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    .pagination-btn.active {
+        background: var(--accent-primary);
+        color: white;
+        border-color: var(--accent-primary);
+    }
+    .pagination-ellipsis {
+        padding: 8px 4px;
+        color: var(--text-muted);
+    }
   </style>
 </head>
 <body>
@@ -354,6 +401,14 @@ require_once 'header.php';
               <tbody id="txTableBody"></tbody>
           </table>
         </div>
+        <div class="pagination-container">
+          <div class="pagination-info">
+            Showing <span id="showingStart">0</span>-<span id="showingEnd">0</span> of <span id="totalRecords">0</span> records
+          </div>
+          <div class="pagination-controls" id="paginationControls">
+            <!-- Pagination buttons will be inserted here by JavaScript -->
+          </div>
+        </div>
       </div>
     </div>
   </main>
@@ -374,6 +429,10 @@ require_once 'header.php';
     document.addEventListener('DOMContentLoaded', () => {
         let allTransactions = [];
         let charts = {};
+        let currentPage = 1;
+        let totalPages = 1;
+        let totalRecords = 0;
+        let perPage = 20;
         const FETCH_URL = 'fetch_petty_cash.php';
         const API_URL = 'add_petty_cash.php';
 
@@ -417,8 +476,24 @@ require_once 'header.php';
         const fetchTransactions = async (filters = {}) => {
             showSkeletonLoader();
             try {
-                const response = await apiCall('GET', FETCH_URL, filters);
+                // Add pagination parameters to filters
+                const params = {
+                    ...filters,
+                    page: currentPage,
+                    limit: perPage
+                };
+                
+                const response = await apiCall('GET', FETCH_URL, params);
                 if (response && response.success) {
+                    // Update pagination state
+                    if (response.pagination) {
+                        currentPage = response.pagination.current_page;
+                        totalPages = response.pagination.total_pages;
+                        totalRecords = response.pagination.total_records;
+                        perPage = response.pagination.per_page;
+                        renderPagination();
+                    }
+                    
                     allTransactions = response.data;
                     renderUI(allTransactions);
                 } else {
@@ -505,6 +580,113 @@ require_once 'header.php';
             elements.currentBalance.innerHTML = `<span class="${balanceClass}">${balance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>`;
             elements.totalCredit.textContent = totalCredit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
             elements.totalDebit.textContent = totalDebit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        };
+
+        const updatePaginationInfo = () => {
+            const start = totalRecords > 0 ? (currentPage - 1) * perPage + 1 : 0;
+            const end = Math.min(currentPage * perPage, totalRecords);
+            document.getElementById('showingStart').textContent = start;
+            document.getElementById('showingEnd').textContent = end;
+            document.getElementById('totalRecords').textContent = totalRecords;
+        };
+        
+        const renderPagination = () => {
+            updatePaginationInfo();
+            const paginationControls = document.getElementById('paginationControls');
+            paginationControls.innerHTML = '';
+            
+            if (totalPages <= 1) {
+                return; // Don't show pagination if only one page
+            }
+            
+            // Previous button
+            const prevBtn = document.createElement('button');
+            prevBtn.className = 'pagination-btn';
+            prevBtn.textContent = 'Previous';
+            prevBtn.disabled = currentPage === 1;
+            prevBtn.onclick = () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    fetchTransactions(getFilterState());
+                }
+            };
+            paginationControls.appendChild(prevBtn);
+            
+            // Page numbers with ellipsis
+            const maxButtons = 7;
+            let startPage = Math.max(1, currentPage - 2);
+            let endPage = Math.min(totalPages, currentPage + 2);
+            
+            if (currentPage <= 3) {
+                endPage = Math.min(totalPages, maxButtons);
+            } else if (currentPage >= totalPages - 2) {
+                startPage = Math.max(1, totalPages - maxButtons + 1);
+            }
+            
+            // First page
+            if (startPage > 1) {
+                const firstBtn = document.createElement('button');
+                firstBtn.className = 'pagination-btn';
+                firstBtn.textContent = '1';
+                firstBtn.onclick = () => {
+                    currentPage = 1;
+                    fetchTransactions(getFilterState());
+                };
+                paginationControls.appendChild(firstBtn);
+                
+                if (startPage > 2) {
+                    const ellipsis = document.createElement('span');
+                    ellipsis.className = 'pagination-ellipsis';
+                    ellipsis.textContent = '...';
+                    paginationControls.appendChild(ellipsis);
+                }
+            }
+            
+            // Page numbers
+            for (let i = startPage; i <= endPage; i++) {
+                const pageBtn = document.createElement('button');
+                pageBtn.className = 'pagination-btn' + (i === currentPage ? ' active' : '');
+                pageBtn.textContent = i;
+                pageBtn.onclick = ((page) => {
+                    return () => {
+                        currentPage = page;
+                        fetchTransactions(getFilterState());
+                    };
+                })(i);
+                paginationControls.appendChild(pageBtn);
+            }
+            
+            // Last page
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    const ellipsis = document.createElement('span');
+                    ellipsis.className = 'pagination-ellipsis';
+                    ellipsis.textContent = '...';
+                    paginationControls.appendChild(ellipsis);
+                }
+                
+                const lastBtn = document.createElement('button');
+                lastBtn.className = 'pagination-btn';
+                lastBtn.textContent = totalPages;
+                lastBtn.onclick = () => {
+                    currentPage = totalPages;
+                    fetchTransactions(getFilterState());
+                };
+                paginationControls.appendChild(lastBtn);
+            }
+            
+            // Next button
+            const nextBtn = document.createElement('button');
+            nextBtn.className = 'pagination-btn';
+            nextBtn.textContent = 'Next';
+            nextBtn.disabled = currentPage === totalPages;
+            nextBtn.onclick = () => {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    fetchTransactions(getFilterState());
+                }
+            };
+            paginationControls.appendChild(nextBtn);
         };
 
         const updateCharts = (transactions) => {
@@ -610,11 +792,15 @@ require_once 'header.php';
         
         // --- Event Listeners ---
 
-        elements.applyFilterBtn.onclick = () => fetchTransactions(getFilterState());
+        elements.applyFilterBtn.onclick = () => {
+            currentPage = 1;
+            fetchTransactions(getFilterState());
+        };
         
         let debounceTimeout;
         elements.searchFilter.addEventListener('input', () => {
             clearTimeout(debounceTimeout);
+            currentPage = 1;
             debounceTimeout = setTimeout(() => fetchTransactions(getFilterState()), 400);
         });
 
