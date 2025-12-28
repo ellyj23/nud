@@ -378,6 +378,7 @@ require_once 'header.php';
           <option value="debit">Money Spent</option>
         </select>
         <input type="text" id="searchFilter" placeholder="Search anything..." class="grow" autocomplete="off" />
+        <select id="entriesPerPage" title="Entries per page"><option value="20">20 entries</option><option value="50">50 entries</option><option value="100">100 entries</option><option value="200">200 entries</option><option value="500">500 entries</option><option value="999999">All</option></select>
         <button class="btn secondary" id="applyFilterBtn"><svg class="icon"><use href="#icon-filter"/></svg>Apply</button>
       </div>
 
@@ -802,6 +803,17 @@ require_once 'header.php';
             currentPage = 1;
             debounceTimeout = setTimeout(() => fetchTransactions(getFilterState()), 400);
         });
+        
+        // Entries per page handler
+        document.getElementById('entriesPerPage').addEventListener('change', (e) => {
+            const newPerPage = parseInt(e.target.value);
+            if (newPerPage !== perPage) {
+                perPage = newPerPage;
+                currentPage = 1;
+                sessionStorage.setItem('pettyCashPerPage', perPage);
+                fetchTransactions(getFilterState());
+            }
+        });
 
         elements.txTableBody.addEventListener('click', async (e) => {
             const button = e.target.closest('button');
@@ -1038,13 +1050,19 @@ require_once 'header.php';
             } else {
                 alert('Email functionality is loading. Please try again.');
             }
-        };
         
         // --- Helper Functions ---
         const escapeHtml = (str) => String(str || '').replace(/[&<>"']/g, m => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'})[m]);
         const destroyCharts = () => { Object.values(charts).forEach(chart => chart && chart.destroy()); };
         
         // Initial data load
+        // Restore entries per page from sessionStorage if available
+        const savedPerPage = sessionStorage.getItem('pettyCashPerPage');
+        if (savedPerPage) {
+            perPage = parseInt(savedPerPage);
+            document.getElementById('entriesPerPage').value = perPage;
+        }
+        
         fetchTransactions();
     });
   </script>

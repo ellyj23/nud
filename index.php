@@ -702,6 +702,7 @@ $initials = strtoupper(substr($first_name, 0, 2));
                 <div class="form-group"><label for="filterDateTo" class="form-label">To</label><input type="date" id="filterDateTo" class="form-control"></div>
                 <div class="form-group"><label for="filterPaidStatus" class="form-label">Status</label><select id="filterPaidStatus" class="form-control form-select"><option value="">All</option><option value="PAID">Paid</option><option value="PARTIALLY PAID">Partially Paid</option><option value="NOT PAID">Not Paid</option></select></div>
                 <div class="form-group"><label for="filterCurrency" class="form-label">Currency</label><select id="filterCurrency" class="form-control form-select"><option value="">All</option><option value="RWF">RWF</option><option value="USD">USD</option><option value="EUR">EUR</option></select></div>
+                <div class="form-group"><label for="entriesPerPage" class="form-label">Show</label><select id="entriesPerPage" class="form-control form-select"><option value="20">20 entries</option><option value="50">50 entries</option><option value="100">100 entries</option><option value="200">200 entries</option><option value="500">500 entries</option><option value="999999">All</option></select></div>
             </div>
         </div>
     
@@ -1480,11 +1481,25 @@ $(document).ready(function() {
     let debounceTimer;
     $('#filterContainer input, #filterContainer select').on('change keyup', function() {
         clearTimeout(debounceTimer);
+        
+        // Special handling for entries per page - update immediately without debounce
+        if ($(this).attr('id') === 'entriesPerPage') {
+            const newPerPage = parseInt($(this).val());
+            if (newPerPage !== perPage) {
+                perPage = newPerPage;
+                currentPage = 1; // Reset to first page when changing entries per page
+                sessionStorage.setItem('clientsPerPage', perPage); // Persist selection
+                loadData();
+            }
+            return;
+        }
+        
         currentPage = 1; // Reset to first page when filters change
         debounceTimer = setTimeout(() => loadData(), 400); // Call the main data load function on any filter change
     });
+    
     $('#viewAllBtn').on('click', () => { 
-        $('#filterContainer').find('input, select').val(''); 
+        $('#filterContainer').find('input, select').not('#entriesPerPage').val(''); 
         currentPage = 1; // Reset to first page
         loadData(); // Reloads all data without filters
     });
@@ -1762,6 +1777,13 @@ $(document).ready(function() {
     });
 
     // --- Initial Load ---
+    // Restore entries per page from sessionStorage if available
+    const savedPerPage = sessionStorage.getItem('clientsPerPage');
+    if (savedPerPage) {
+        perPage = parseInt(savedPerPage);
+        $('#entriesPerPage').val(perPage);
+    }
+    
     loadData(); // Initial data load
     fetchForexRates();
     setInterval(fetchForexRates, 1000 * 60 * 15);

@@ -356,6 +356,7 @@ require_once 'header.php';
         <select id="typeFilter" title="Transaction Type"><option value="all">All Types</option><option value="payment">Payment</option><option value="expense">Expense</option></select>
         <select id="currencyFilter" title="Currency"><option value="all">All Currencies</option></select>
         <input type="text" id="searchFilter" placeholder="Search anything..." class="grow" autocomplete="off" />
+        <select id="entriesPerPage" title="Entries per page"><option value="20">20 entries</option><option value="50">50 entries</option><option value="100">100 entries</option><option value="200">200 entries</option><option value="500">500 entries</option><option value="999999">All</option></select>
         <button class="btn secondary" id="applyFilterBtn"><svg class="icon"><use href="#icon-filter"/></svg>Apply</button>
       </div>
 
@@ -797,6 +798,17 @@ require_once 'header.php';
             fetchTransactions(getFilterState());
         };
         
+        // Entries per page handler
+        document.getElementById('entriesPerPage').addEventListener('change', (e) => {
+            const newPerPage = parseInt(e.target.value);
+            if (newPerPage !== perPage) {
+                perPage = newPerPage;
+                currentPage = 1;
+                sessionStorage.setItem('transactionsPerPage', perPage);
+                fetchTransactions(getFilterState());
+            }
+        });
+        
         let debounceTimeout;
         elements.searchFilter.addEventListener('input', () => {
             clearTimeout(debounceTimeout);
@@ -989,7 +1001,6 @@ require_once 'header.php';
                 }
             });
             elements.currencyFilter.value = currentVal;
-        };
         
         // --- Helper Functions ---
         const capitalize = (str) => str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
@@ -997,6 +1008,13 @@ require_once 'header.php';
         const destroyCharts = () => { Object.values(charts).forEach(chart => chart && chart.destroy()); };
         
         // Initial data load
+        // Restore entries per page from sessionStorage if available
+        const savedPerPage = sessionStorage.getItem('transactionsPerPage');
+        if (savedPerPage) {
+            perPage = parseInt(savedPerPage);
+            document.getElementById('entriesPerPage').value = perPage;
+        }
+        
         fetchTransactions();
     });
   </script>
