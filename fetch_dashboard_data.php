@@ -23,36 +23,37 @@ try {
 
     $response = ['success' => true];
 
-    // --- PART 1: Fetch dashboard stats ONLY for the initial page load ---
-    if (!$isSearchOrFilter) {
-        $totalClientsStmt = $pdo->query("SELECT COUNT(id) FROM clients");
-        $totalClients = (int)$totalClientsStmt->fetchColumn();
+    // --- PART 1: Fetch overall dashboard stats (ALWAYS fetch, regardless of filters) ---
+    // Total clients count
+    $totalClientsStmt = $pdo->query("SELECT COUNT(id) FROM clients");
+    $totalClients = (int)$totalClientsStmt->fetchColumn();
 
-        $summarySql = "SELECT currency, SUM(paid_amount) as total_revenue, SUM(due_amount) as outstanding_amount FROM clients GROUP BY currency";
-        $summaryStmt = $pdo->query($summarySql);
-        $currencyResults = $summaryStmt->fetchAll(PDO::FETCH_ASSOC);
+    // Overall totals by currency (not affected by pagination)
+    $summarySql = "SELECT currency, SUM(paid_amount) as total_revenue, SUM(due_amount) as outstanding_amount FROM clients GROUP BY currency";
+    $summaryStmt = $pdo->query($summarySql);
+    $currencyResults = $summaryStmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $currencySummaries = [];
-        foreach ($currencyResults as $row) {
-            $currencySummaries[$row['currency']] = [
-                'total_revenue' => (float)$row['total_revenue'],
-                'outstanding_amount' => (float)$row['outstanding_amount']
-            ];
-        }
-        foreach (['RWF', 'USD', 'EUR'] as $primaryCurrency) {
-            if (!isset($currencySummaries[$primaryCurrency])) {
-                $currencySummaries[$primaryCurrency] = ['total_revenue' => 0, 'outstanding_amount' => 0];
-            }
-        }
-        
-        $response['stats'] = [
-            'currencySummaries' => $currencySummaries,
-            'totalClients' => $totalClients,
-            'revenueChange' => (rand(0, 1) ? 1 : -1) * (rand(10, 250) / 10),
-            'outstandingChange' => (rand(0, 1) ? 1 : -1) * (rand(10, 150) / 10),
-            'newClients' => rand(5, 20)
+    $currencySummaries = [];
+    foreach ($currencyResults as $row) {
+        $currencySummaries[$row['currency']] = [
+            'total_revenue' => (float)$row['total_revenue'],
+            'outstanding_amount' => (float)$row['outstanding_amount']
         ];
     }
+    foreach (['RWF', 'USD', 'EUR'] as $primaryCurrency) {
+        if (!isset($currencySummaries[$primaryCurrency])) {
+            $currencySummaries[$primaryCurrency] = ['total_revenue' => 0, 'outstanding_amount' => 0];
+        }
+    }
+    
+    // Always include stats in response
+    $response['stats'] = [
+        'currencySummaries' => $currencySummaries,
+        'totalClients' => $totalClients,
+        'revenueChange' => (rand(0, 1) ? 1 : -1) * (rand(10, 250) / 10),
+        'outstandingChange' => (rand(0, 1) ? 1 : -1) * (rand(10, 150) / 10),
+        'newClients' => rand(5, 20)
+    ];
 
     // --- PART 2: Fetch client list (either full or filtered) ---
     $clientsSql = "SELECT *, 

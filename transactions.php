@@ -356,6 +356,7 @@ require_once 'header.php';
         <select id="typeFilter" title="Transaction Type"><option value="all">All Types</option><option value="payment">Payment</option><option value="expense">Expense</option></select>
         <select id="currencyFilter" title="Currency"><option value="all">All Currencies</option></select>
         <input type="text" id="searchFilter" placeholder="Search anything..." class="grow" autocomplete="off" />
+        <select id="entriesPerPage" title="Entries per page"><option value="20">20 entries</option><option value="50">50 entries</option><option value="100">100 entries</option><option value="200">200 entries</option><option value="500">500 entries</option><option value="999999">All</option></select>
         <button class="btn secondary" id="applyFilterBtn"><svg class="icon"><use href="#icon-filter"/></svg>Apply</button>
       </div>
 
@@ -509,7 +510,11 @@ require_once 'header.php';
                         }
                         return tx;
                     });
-                    renderUI(allTransactions);
+                    
+                    // Store overall totals for summary display
+                    const overallTotals = data.overall_totals || [];
+                    
+                    renderUI(allTransactions, overallTotals);
                 } else {
                     showErrorState('Failed to load transactions. The server returned an error.');
                 }
@@ -527,10 +532,10 @@ require_once 'header.php';
             </td></tr>`;
         }
 
-        const renderUI = (transactions) => {
+        const renderUI = (transactions, overallTotals = []) => {
             cancelEditing();
             renderTable(transactions);
-            updateSummary(transactions);
+            updateSummary(overallTotals); // Use overall totals instead of current page data
             updateRefundableSummary(transactions);
             updateCharts(transactions);
             updateCurrencyFilterOptions(transactions);
@@ -579,20 +584,19 @@ require_once 'header.php';
             }
         };
 
-        const updateSummary = (transactions) => {
-            const totals = {};
-            transactions.forEach(tx => {
-                const currency = tx.currency || 'N/A';
-                if (!totals[currency]) totals[currency] = { payment: 0, expense: 0 };
-                const amount = parseFloat(tx.amount);
-                if (tx.type === 'payment') totals[currency].payment += amount;
-                else if (tx.type === 'expense') totals[currency].expense += amount;
-            });
-
+        const updateSummary = (overallTotals) => {
             const summaryEl = document.getElementById("summaryTotals");
-            summaryEl.innerHTML = Object.keys(totals).length === 0 ? '—' : '';
-            for (const currency in totals) {
-                const { payment, expense } = totals[currency];
+            
+            if (!overallTotals || overallTotals.length === 0) {
+                summaryEl.innerHTML = '—';
+                return;
+            }
+            
+            summaryEl.innerHTML = '';
+            overallTotals.forEach(totalsRow => {
+                const currency = totalsRow.currency || 'N/A';
+                const payment = parseFloat(totalsRow.total_income) || 0;
+                const expense = parseFloat(totalsRow.total_expense) || 0;
                 const net = payment - expense;
                 const netColor = net >= 0 ? 'var(--success)' : 'var(--danger)';
                 summaryEl.innerHTML += `<div class="summary-line">
@@ -601,7 +605,7 @@ require_once 'header.php';
                         <span style="color: var(--success)">↑${payment.toLocaleString(undefined, {minimumFractionDigits: 2})}</span> / 
                         <span style="color: var(--danger)">↓${expense.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                     </span></div>`;
-            }
+            });
         };
         
         const updateRefundableSummary = (transactions) => {
@@ -793,6 +797,17 @@ require_once 'header.php';
             currentPage = 1;
             fetchTransactions(getFilterState());
         };
+        
+        // Entries per page handler
+        document.getElementById('entriesPerPage').addEventListener('change', (e) => {
+            const newPerPage = parseInt(e.target.value);
+            if (newPerPage !== perPage) {
+                perPage = newPerPage;
+                currentPage = 1;
+                sessionStorage.setItem('transactionsPerPage', perPage);
+                fetchTransactions(getFilterState());
+            }
+        });
         
         let debounceTimeout;
         elements.searchFilter.addEventListener('input', () => {
@@ -986,7 +1001,6 @@ require_once 'header.php';
                 }
             });
             elements.currencyFilter.value = currentVal;
-        };
         
         // --- Helper Functions ---
         const capitalize = (str) => str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
@@ -994,6 +1008,13 @@ require_once 'header.php';
         const destroyCharts = () => { Object.values(charts).forEach(chart => chart && chart.destroy()); };
         
         // Initial data load
+        // Restore entries per page from sessionStorage if available
+        const savedPerPage = sessionStorage.getItem('transactionsPerPage');
+        if (savedPerPage) {
+            perPage = parseInt(savedPerPage);
+            document.getElementById('entriesPerPage').value = perPage;
+        }
+        
         fetchTransactions();
     });
   </script>

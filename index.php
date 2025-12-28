@@ -702,6 +702,7 @@ $initials = strtoupper(substr($first_name, 0, 2));
                 <div class="form-group"><label for="filterDateTo" class="form-label">To</label><input type="date" id="filterDateTo" class="form-control"></div>
                 <div class="form-group"><label for="filterPaidStatus" class="form-label">Status</label><select id="filterPaidStatus" class="form-control form-select"><option value="">All</option><option value="PAID">Paid</option><option value="PARTIALLY PAID">Partially Paid</option><option value="NOT PAID">Not Paid</option></select></div>
                 <div class="form-group"><label for="filterCurrency" class="form-label">Currency</label><select id="filterCurrency" class="form-control form-select"><option value="">All</option><option value="RWF">RWF</option><option value="USD">USD</option><option value="EUR">EUR</option></select></div>
+                <div class="form-group"><label for="entriesPerPage" class="form-label">Show</label><select id="entriesPerPage" class="form-control form-select"><option value="20">20 entries</option><option value="50">50 entries</option><option value="100">100 entries</option><option value="200">200 entries</option><option value="500">500 entries</option><option value="999999">All</option></select></div>
             </div>
         </div>
     
@@ -886,8 +887,8 @@ $(document).ready(function() {
                         renderPagination();
                     }
                     
-                    // Stats are only returned on the initial load (when no filters are active).
-                    // This prevents cards from updating on every search keystroke.
+                    // Stats are now always returned and reflect overall totals (not just current page)
+                    // Dashboard cards show the complete dataset regardless of pagination
                     if (response.stats) {
                         currencySummaries = response.stats.currencySummaries;
                         updateDashboardCards(response.stats);
@@ -1480,11 +1481,25 @@ $(document).ready(function() {
     let debounceTimer;
     $('#filterContainer input, #filterContainer select').on('change keyup', function() {
         clearTimeout(debounceTimer);
+        
+        // Special handling for entries per page - update immediately without debounce
+        if ($(this).attr('id') === 'entriesPerPage') {
+            const newPerPage = parseInt($(this).val());
+            if (newPerPage !== perPage) {
+                perPage = newPerPage;
+                currentPage = 1; // Reset to first page when changing entries per page
+                sessionStorage.setItem('clientsPerPage', perPage); // Persist selection
+                loadData();
+            }
+            return;
+        }
+        
         currentPage = 1; // Reset to first page when filters change
         debounceTimer = setTimeout(() => loadData(), 400); // Call the main data load function on any filter change
     });
+    
     $('#viewAllBtn').on('click', () => { 
-        $('#filterContainer').find('input, select').val(''); 
+        $('#filterContainer').find('input, select').not('#entriesPerPage').val(''); 
         currentPage = 1; // Reset to first page
         loadData(); // Reloads all data without filters
     });
@@ -1493,8 +1508,39 @@ $(document).ready(function() {
     $('#downloadExcelBtn').on('click', function() {
         const table = document.getElementById('clientTable');
         if (!table || table.rows.length <= 1) { showToast('No data to download.', 'error'); return; }
+        
+        // Create a clean copy of the table data without avatars
+        const cleanData = [];
+        const headers = ['#', 'Reg No', 'Client Name', 'Date', 'Responsible', 'TIN', 'Service', 'Amount', 'Currency', 'Paid', 'Due', 'Status'];
+        cleanData.push(headers);
+        
+        // Extract data from table rows
+        $('#clientTable tbody tr').each(function() {
+            const row = $(this);
+            // Skip if it's a "no data" row
+            if (row.find('td').length === 1 && row.find('td').attr('colspan')) {
+                return;
+            }
+            
+            const rowData = [];
+            rowData.push(row.find('td').eq(1).text()); // #
+            rowData.push(row.find('td').eq(2).text().trim()); // Reg No
+            rowData.push(row.find('td').eq(3).text().trim()); // Client Name
+            rowData.push(row.find('td').eq(4).find('.date-main').text().trim() || row.find('td').eq(4).text().trim()); // Date (without time ago)
+            rowData.push(row.find('td').eq(5).find('.user-name').text().trim() || row.find('td').eq(5).text().trim()); // Responsible (name only, without avatar)
+            rowData.push(row.find('td').eq(6).text().trim()); // TIN
+            rowData.push(row.find('td').eq(7).text().trim()); // Service
+            rowData.push(row.find('td').eq(8).text().trim()); // Amount
+            rowData.push(row.find('td').eq(9).text().trim()); // Currency
+            rowData.push(row.find('td').eq(10).find('.paid-container').text().split('\n')[0].trim() || row.find('td').eq(10).text().trim()); // Paid (without progress bar)
+            rowData.push(row.find('td').eq(11).text().trim()); // Due
+            rowData.push(row.find('td').eq(12).text().trim()); // Status
+            
+            cleanData.push(rowData);
+        });
+        
         const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.table_to_sheet(table);
+        const ws = XLSX.utils.aoa_to_sheet(cleanData);
         XLSX.utils.book_append_sheet(wb, ws, 'Client_Data');
         XLSX.writeFile(wb, `Feza_Logistics_Clients_${new Date().toISOString().slice(0, 10)}.xlsx`);
     });
@@ -1524,7 +1570,23 @@ $(document).ready(function() {
     
     $('#printTableBtn').on('click', function() {
         const tableToPrint = $('#clientTable').clone();
-        tableToPrint.find('.table-actions').remove(); // Remove actions column for printing
+        
+        // Remove avatar elements and keep only names
+        tableToPrint.find('.user-info').each(function() {
+            const userName = $(this).find('.user-name').text();
+            $(this).replaceWith(userName);
+        });
+        
+        // Remove time-ago elements from dates
+        tableToPrint.find('.time-ago').remove();
+        
+        // Remove progress bars from paid amounts
+        tableToPrint.find('.payment-progress').remove();
+        
+        // Remove actions column and checkbox column
+        tableToPrint.find('.table-actions').remove();
+        tableToPrint.find('th:first-child, td:first-child').remove(); // Remove checkbox column
+        
         const printWindow = window.open('', '', 'height=800,width=1200');
         printWindow.document.write('<html><head><title>Print Client Data</title><link rel="stylesheet" href="assets/css/design-system.css"><style>body{background:white;padding:2rem;}th:last-child,td:last-child{display:none;}</style></head><body><h1>Client Financial Data</h1>');
         printWindow.document.write(tableToPrint.prop('outerHTML'));
@@ -1762,6 +1824,13 @@ $(document).ready(function() {
     });
 
     // --- Initial Load ---
+    // Restore entries per page from sessionStorage if available
+    const savedPerPage = sessionStorage.getItem('clientsPerPage');
+    if (savedPerPage) {
+        perPage = parseInt(savedPerPage);
+        $('#entriesPerPage').val(perPage);
+    }
+    
     loadData(); // Initial data load
     fetchForexRates();
     setInterval(fetchForexRates, 1000 * 60 * 15);
