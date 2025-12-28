@@ -11,6 +11,9 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
 
 require 'db.php';
 require_once 'fpdf/fpdf.php';
+require_once 'lib/QRCodeGenerator.php';
+require_once 'lib/BarcodeGenerator.php';
+require_once 'lib/DocumentVerification.php';
 
 // Helper function for currency symbols
 function getCurrencySymbol($currency_code) {
@@ -45,6 +48,12 @@ class ClientDocumentPDF extends FPDF
     private $primaryColor = [0, 113, 206]; // Feza Logistics Blue: #0071ce
     private $secondaryColor = [73, 80, 87];  // Dark Gray for text: #495057
     private $borderColor = [222, 226, 230]; // Light gray for borders: #dee2e6
+    
+    // Document verification data
+    public $docType = '';
+    public $docId = 0;
+    public $docAmount = '';
+    public $docDate = '';
 
     function Header() {
         // Company logo integration with improved error handling - positioned on the right
@@ -116,6 +125,62 @@ class ClientDocumentPDF extends FPDF
     }
 
     function Footer() {
+        // Add QR Code and Barcode for document verification (only on first page)
+        if ($this->PageNo() === 1 && !empty($this->docType) && !empty($this->docId)) {
+            // Generate verification data
+            $verificationData = QRCodeGenerator::generateVerificationData(
+                $this->docType, 
+                $this->docId, 
+                $this->docAmount, 
+                $this->docDate
+            );
+            
+            $barcodeID = BarcodeGenerator::generateDocumentBarcodeID(
+                $this->docType, 
+                $this->docId, 
+                $this->docDate
+            );
+            
+            // Position QR code and barcode
+            $this->SetY(-55);
+            
+            // Try to add QR code using secure temp file
+            $qrCodePath = tempnam(sys_get_temp_dir(), 'qr_') . '.png';
+            if (QRCodeGenerator::generateQRCodeFile($verificationData, $qrCodePath, 200)) {
+                try {
+                    $this->Image($qrCodePath, 15, $this->GetY(), 25, 25);
+                } catch (Exception $e) {
+                    // If image fails, continue without QR code
+                }
+                if (file_exists($qrCodePath) && !unlink($qrCodePath)) {
+                    error_log("Failed to delete temporary QR code file: " . $qrCodePath);
+                }
+            }
+            
+            // Try to add barcode using secure temp file
+            $barcodePath = tempnam(sys_get_temp_dir(), 'barcode_') . '.png';
+            if (BarcodeGenerator::generateBarcodeFile($barcodeID, $barcodePath)) {
+                try {
+                    $this->Image($barcodePath, 45, $this->GetY() + 5, 60, 15);
+                } catch (Exception $e) {
+                    // If image fails, continue without barcode
+                }
+                if (file_exists($barcodePath) && !unlink($barcodePath)) {
+                    error_log("Failed to delete temporary barcode file: " . $barcodePath);
+                }
+            }
+            
+            // Add verification text
+            $this->SetXY(110, $this->GetY() + 5);
+            $this->SetFont('Arial', '', 7);
+            $this->SetTextColor(100);
+            $this->MultiCell(85, 3, 
+                "Verify this document:\n" .
+                "Scan QR code or visit:\n" .
+                "verify_document.php?type={$this->docType}&id={$this->docId}\n" .
+                "Document ID: {$barcodeID}", 0, 'R');
+        }
+        
         $this->SetY(-25);
         $this->SetFont('Arial', 'I', 8);
         $this->SetTextColor($this->secondaryColor[0], $this->secondaryColor[1], $this->secondaryColor[2]);
@@ -173,6 +238,13 @@ try {
 
     // Create PDF
     $pdf = new ClientDocumentPDF();
+    
+    // Set document verification data
+    $pdf->docType = $docType;
+    $pdf->docId = $clientId; // Using client ID as document ID for simple invoices/receipts
+    $pdf->docAmount = $client['currency'] . ' ' . number_format(($docType === 'invoice' ? $amount : $paidAmount), 2);
+    $pdf->docDate = $client['date'];
+    
     $pdf->AddPage();
 
     // Document title - centered below header
@@ -255,6 +327,30 @@ if ($docType === 'invoice') {
     $pdf->Cell(155, 8, 'AMOUNT PAID:', 1, 0, 'R');
     $pdf->Cell(35, 8, $currencySymbol . number_format($paidAmount, 2), 1, 1, 'R');
 }
+
+    // Register document in verification system
+    try {
+        $docVerification = new DocumentVerification($pdo);
+        $docVerification->registerDocument([
+            'doc_type' => $docType,
+            'doc_id' => $clientId,
+            'doc_number' => $client['reg_no'],
+            'doc_amount' => ($docType === 'invoice' ? $amount : $paidAmount),
+            'doc_currency' => $client['currency'],
+            'issue_date' => $client['date'],
+            'issuer_user_id' => $_SESSION['user_id'] ?? 1,
+            'status' => 'active',
+            'metadata' => [
+                'customer_name' => $client['client_name'],
+                'phone_number' => $client['phone_number'] ?? null,
+                'service' => $client['service'] ?? null,
+                'tin' => $tin !== 'N/A' ? $tin : null
+            ]
+        ]);
+    } catch (Exception $e) {
+        // Continue even if registration fails - don't block PDF generation
+        error_log("Document verification registration failed: " . $e->getMessage());
+    }
 
     // Output PDF - Open in new tab instead of forcing download
     $filename = $documentTitle . '-' . $client['reg_no'] . '.pdf';

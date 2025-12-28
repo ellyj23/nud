@@ -143,7 +143,9 @@ class ProfessionalPDF extends FPDF
                 } catch (Exception $e) {
                     // If image fails, continue without QR code
                 }
-                @unlink($qrCodePath); // Clean up temp file
+                if (file_exists($qrCodePath) && !unlink($qrCodePath)) {
+                    error_log("Failed to delete temporary QR code file: " . $qrCodePath);
+                }
             }
             
             // Try to add barcode using secure temp file
@@ -154,7 +156,9 @@ class ProfessionalPDF extends FPDF
                 } catch (Exception $e) {
                     // If image fails, continue without barcode
                 }
-                @unlink($barcodePath); // Clean up temp file
+                if (file_exists($barcodePath) && !unlink($barcodePath)) {
+                    error_log("Failed to delete temporary barcode file: " . $barcodePath);
+                }
             }
             
             // Add verification text
@@ -337,6 +341,11 @@ switch ($doc_type) {
             $pdf->Cell(0, 5, 'Prepared by: Automated System', 0, 1);
         }
         
+        // Prepare file name and document number
+        $file_name_prefix = ucfirst($doc_type);
+        $file_name_number = $doc_type === 'quotation' ? $doc['quote_number'] : $doc['invoice_number'];
+        $file_name = "{$file_name_prefix}-{$file_name_number}.pdf";
+        
         // Register document in verification system
         $docVerification = new DocumentVerification($pdo);
         $docVerification->registerDocument([
@@ -354,9 +363,6 @@ switch ($doc_type) {
             ]
         ]);
         
-        $file_name_prefix = ucfirst($doc_type);
-        $file_name_number = $doc_type === 'quotation' ? $doc['quote_number'] : $doc['invoice_number'];
-        $file_name = "{$file_name_prefix}-{$file_name_number}.pdf";
         break;
 
     case 'receipt':
