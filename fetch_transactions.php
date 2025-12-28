@@ -29,9 +29,6 @@ try {
     $limit = isset($_GET['limit']) ? max(1, min(100, intval($_GET['limit']))) : 20; // Default 20, max 100
     $offset = ($page - 1) * $limit;
     
-    // Enhanced query with comprehensive search functionality within wp_ea_transactions table
-    // Removed JOINs with wp_ea_contacts and wp_ea_categories tables as they don't exist in current database
-  try {
     // Simple query without JOINs - only uses wp_ea_transactions table
     $sql = "SELECT t.id, t.type, t.number, t.payment_date, t.amount, t.currency, t.reference, t.note, t.status, t.payment_method, t.refundable
             FROM wp_ea_transactions t
@@ -176,3 +173,4 @@ try {
     http_response_code(500);
     echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
 }
+?>
