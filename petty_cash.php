@@ -495,7 +495,15 @@ require_once 'header.php';
                     }
                     
                     allTransactions = response.data;
-                    renderUI(allTransactions);
+                    
+                    // Store overall totals for summary display
+                    const overallTotals = response.overall_totals || {
+                        total_credits: 0,
+                        total_debits: 0,
+                        current_balance: 0
+                    };
+                    
+                    renderUI(allTransactions, overallTotals);
                 } else {
                     showErrorState('Failed to load transactions. The server returned an error.');
                 }
@@ -513,10 +521,10 @@ require_once 'header.php';
             </td></tr>`;
         }
 
-        const renderUI = (transactions) => {
+        const renderUI = (transactions, overallTotals = {}) => {
             cancelEditing();
             renderTable(transactions);
-            updateSummary(transactions);
+            updateSummary(overallTotals); // Use overall totals instead of current page data
             updateCharts(transactions);
             elements.txCount.textContent = transactions.length;
         };
@@ -561,20 +569,11 @@ require_once 'header.php';
             }
         };
 
-        const updateSummary = (transactions) => {
-            let totalCredit = 0;
-            let totalDebit = 0;
+        const updateSummary = (overallTotals) => {
+            const totalCredit = parseFloat(overallTotals.total_credits) || 0;
+            const totalDebit = parseFloat(overallTotals.total_debits) || 0;
+            const balance = parseFloat(overallTotals.current_balance) || (totalCredit - totalDebit);
             
-            transactions.forEach(tx => {
-                const amount = parseFloat(tx.amount);
-                if (tx.transaction_type === 'credit') {
-                    totalCredit += amount;
-                } else if (tx.transaction_type === 'debit') {
-                    totalDebit += amount;
-                }
-            });
-            
-            const balance = totalCredit - totalDebit;
             const balanceClass = balance >= 0 ? 'balance-positive' : 'balance-negative';
             
             elements.currentBalance.innerHTML = `<span class="${balanceClass}">${balance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>`;

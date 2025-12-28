@@ -886,8 +886,8 @@ $(document).ready(function() {
                         renderPagination();
                     }
                     
-                    // Stats are only returned on the initial load (when no filters are active).
-                    // This prevents cards from updating on every search keystroke.
+                    // Stats are now always returned and reflect overall totals (not just current page)
+                    // Dashboard cards show the complete dataset regardless of pagination
                     if (response.stats) {
                         currencySummaries = response.stats.currencySummaries;
                         updateDashboardCards(response.stats);

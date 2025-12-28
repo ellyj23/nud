@@ -134,9 +134,43 @@ try {
     $stmt->execute();
     $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
+    // Calculate overall totals (not affected by pagination)
+    $overallTotalsSql = "SELECT 
+        SUM(CASE WHEN transaction_type = 'credit' THEN amount ELSE 0 END) as total_credits,
+        SUM(CASE WHEN transaction_type = 'debit' THEN amount ELSE 0 END) as total_debits
+        FROM petty_cash
+        WHERE 1=1";
+    
+    $overallTotalsParams = [];
+    
+    // Apply the same filters as the main query (excluding pagination)
+    if (!empty($_GET['from'])) {
+        $overallTotalsSql .= " AND DATE(transaction_date) >= :from";
+        $overallTotalsParams[':from'] = $_GET['from'];
+    }
+    if (!empty($_GET['to'])) {
+        $overallTotalsSql .= " AND DATE(transaction_date) <= :to";
+        $overallTotalsParams[':to'] = $_GET['to'];
+    }
+    if (!empty($_GET['type']) && $_GET['type'] !== 'all') {
+        $overallTotalsSql .= " AND transaction_type = :type";
+        $overallTotalsParams[':type'] = $_GET['type'];
+    }
+    
+    $overallTotalsStmt = $pdo->prepare($overallTotalsSql);
+    $overallTotalsStmt->execute($overallTotalsParams);
+    $overallTotalsRow = $overallTotalsStmt->fetch(PDO::FETCH_ASSOC);
+    
+    $overallTotals = [
+        'total_credits' => (float)($overallTotalsRow['total_credits'] ?? 0),
+        'total_debits' => (float)($overallTotalsRow['total_debits'] ?? 0),
+        'current_balance' => (float)($overallTotalsRow['total_credits'] ?? 0) - (float)($overallTotalsRow['total_debits'] ?? 0)
+    ];
+    
     echo json_encode([
         'success' => true,
         'data' => $transactions,
+        'overall_totals' => $overallTotals,
         'pagination' => [
             'current_page' => $page,
             'per_page' => $limit,

@@ -158,9 +158,48 @@ try {
     $stmt->execute();
     $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
+    // Calculate overall totals (not affected by pagination)
+    $overallTotalsSql = "SELECT 
+        SUM(CASE WHEN type = 'payment' THEN amount ELSE 0 END) as total_income,
+        SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as total_expense,
+        currency
+        FROM wp_ea_transactions
+        WHERE 1=1";
+    
+    $overallTotalsParams = [];
+    
+    // Apply the same filters as the main query (excluding pagination)
+    if (!empty($_GET['from'])) {
+        $overallTotalsSql .= " AND DATE(payment_date) >= :from";
+        $overallTotalsParams[':from'] = $_GET['from'];
+    }
+    if (!empty($_GET['to'])) {
+        $overallTotalsSql .= " AND DATE(payment_date) <= :to";
+        $overallTotalsParams[':to'] = $_GET['to'];
+    }
+    if (!empty($_GET['type']) && $_GET['type'] !== 'all') {
+        $overallTotalsSql .= " AND type = :type";
+        $overallTotalsParams[':type'] = $_GET['type'];
+    }
+    if (!empty($_GET['status']) && $_GET['status'] !== 'all') {
+        $overallTotalsSql .= " AND status = :status";
+        $overallTotalsParams[':status'] = $_GET['status'];
+    }
+    if (!empty($_GET['currency']) && $_GET['currency'] !== 'all') {
+        $overallTotalsSql .= " AND currency = :currency";
+        $overallTotalsParams[':currency'] = $_GET['currency'];
+    }
+    
+    $overallTotalsSql .= " GROUP BY currency";
+    
+    $overallTotalsStmt = $pdo->prepare($overallTotalsSql);
+    $overallTotalsStmt->execute($overallTotalsParams);
+    $overallTotals = $overallTotalsStmt->fetchAll(PDO::FETCH_ASSOC);
+    
     echo json_encode([
         'success' => true,
         'data' => $transactions,
+        'overall_totals' => $overallTotals,
         'pagination' => [
             'current_page' => $page,
             'per_page' => $limit,

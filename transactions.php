@@ -509,7 +509,11 @@ require_once 'header.php';
                         }
                         return tx;
                     });
-                    renderUI(allTransactions);
+                    
+                    // Store overall totals for summary display
+                    const overallTotals = data.overall_totals || [];
+                    
+                    renderUI(allTransactions, overallTotals);
                 } else {
                     showErrorState('Failed to load transactions. The server returned an error.');
                 }
@@ -527,10 +531,10 @@ require_once 'header.php';
             </td></tr>`;
         }
 
-        const renderUI = (transactions) => {
+        const renderUI = (transactions, overallTotals = []) => {
             cancelEditing();
             renderTable(transactions);
-            updateSummary(transactions);
+            updateSummary(overallTotals); // Use overall totals instead of current page data
             updateRefundableSummary(transactions);
             updateCharts(transactions);
             updateCurrencyFilterOptions(transactions);
@@ -579,20 +583,19 @@ require_once 'header.php';
             }
         };
 
-        const updateSummary = (transactions) => {
-            const totals = {};
-            transactions.forEach(tx => {
-                const currency = tx.currency || 'N/A';
-                if (!totals[currency]) totals[currency] = { payment: 0, expense: 0 };
-                const amount = parseFloat(tx.amount);
-                if (tx.type === 'payment') totals[currency].payment += amount;
-                else if (tx.type === 'expense') totals[currency].expense += amount;
-            });
-
+        const updateSummary = (overallTotals) => {
             const summaryEl = document.getElementById("summaryTotals");
-            summaryEl.innerHTML = Object.keys(totals).length === 0 ? '—' : '';
-            for (const currency in totals) {
-                const { payment, expense } = totals[currency];
+            
+            if (!overallTotals || overallTotals.length === 0) {
+                summaryEl.innerHTML = '—';
+                return;
+            }
+            
+            summaryEl.innerHTML = '';
+            overallTotals.forEach(totalsRow => {
+                const currency = totalsRow.currency || 'N/A';
+                const payment = parseFloat(totalsRow.total_income) || 0;
+                const expense = parseFloat(totalsRow.total_expense) || 0;
                 const net = payment - expense;
                 const netColor = net >= 0 ? 'var(--success)' : 'var(--danger)';
                 summaryEl.innerHTML += `<div class="summary-line">
@@ -601,7 +604,7 @@ require_once 'header.php';
                         <span style="color: var(--success)">↑${payment.toLocaleString(undefined, {minimumFractionDigits: 2})}</span> / 
                         <span style="color: var(--danger)">↓${expense.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                     </span></div>`;
-            }
+            });
         };
         
         const updateRefundableSummary = (transactions) => {
