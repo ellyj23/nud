@@ -513,20 +513,31 @@
 }
 
 /* Enhanced Table Styles */
-.enhanced-table {
+.enhanced-table,
+#clientTable {
   width: 100%;
+  min-width: 1600px !important;
+  table-layout: auto !important;
   border-collapse: collapse;
   background-color: var(--bg-primary);
   font-size: var(--font-size-sm);
 }
 
 .enhanced-table th,
-.enhanced-table td {
+.enhanced-table td,
+#clientTable th,
+#clientTable td {
   padding: 0.75rem 1rem; /* Reduced vertical padding for closer spacing */
   text-align: left;
   border-bottom: 1px solid var(--border-primary);
   vertical-align: middle;
-  white-space: nowrap; /* Prevent text wrapping - single line display */
+  white-space: nowrap !important; /* Prevent text wrapping - single line display */
+}
+
+/* Ensure all nested elements don't wrap */
+#clientTable td *,
+.enhanced-table td * {
+  white-space: nowrap !important;
 }
 
 .enhanced-table th {
@@ -626,8 +637,9 @@
 }
 
 /* Status Indicators - Enhanced Badge Style */
-.status-indicator {
-  display: inline-flex;
+.status-indicator,
+.status-badge {
+  display: inline-flex !important;
   align-items: center;
   gap: 0.5rem;
   padding: 0.375rem 0.75rem;
@@ -636,7 +648,7 @@
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  white-space: nowrap;
+  white-space: nowrap !important;
   transition: all var(--transition-fast);
 }
 
@@ -881,25 +893,28 @@
 
 /* Time ago counter specific styling */
 .time-ago {
-  font-size: 0.65rem; /* Very small font size */
+  font-size: 0.65rem !important; /* Very small font size */
   color: var(--text-muted);
-  font-style: italic;
-  font-weight: var(--font-weight-bold);
-  display: block;
+  font-style: italic !important;
+  font-weight: var(--font-weight-bold) !important;
+  display: block !important;
   margin-top: 0.15rem;
   line-height: 1;
+  white-space: nowrap !important;
 }
 
 /* Date container for vertical stacking of date and time-ago */
 .date-container {
-  display: flex;
+  display: inline-block !important;
   flex-direction: column; /* Stack date and time-ago vertically */
   gap: 0.15rem;
+  white-space: nowrap !important;
 }
 
 .date-main {
-  white-space: nowrap; /* Prevent the date text itself from wrapping */
+  white-space: nowrap !important; /* Prevent the date text itself from wrapping */
   line-height: 1.2;
+  display: block !important;
 }
 
 .paid-container {
@@ -916,15 +931,25 @@
 
 /* Horizontal layout for user info (avatar + name) - avatar LEFT, name RIGHT */
 .user-info {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  white-space: nowrap;
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  white-space: nowrap !important;
+  flex-wrap: nowrap !important;
+}
+
+.user-avatar {
+  flex-shrink: 0 !important;
+}
+
+.user-name {
+  white-space: nowrap !important;
 }
 
 /* Enable horizontal scrolling for table */
 .table-responsive-wrapper {
-  overflow-x: auto;
+  overflow-x: auto !important;
   -webkit-overflow-scrolling: touch;
 }
 

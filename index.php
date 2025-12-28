@@ -443,6 +443,83 @@ $initials = strtoupper(substr($first_name, 0, 2));
             transform: translateY(-1px) !important;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
         }
+
+        /* ========== CRITICAL TABLE TEXT WRAPPING FIXES ========== */
+        /* 1. Force ALL table cells to never wrap */
+        #clientTable td,
+        #clientTable th,
+        .enhanced-table td,
+        .enhanced-table th {
+            white-space: nowrap !important;
+        }
+
+        /* 2. Fix the Responsible column - Avatar LEFT of Name (horizontal layout) */
+        .user-info {
+            display: inline-flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            gap: 0.5rem !important;
+            white-space: nowrap !important;
+            flex-wrap: nowrap !important;
+        }
+
+        .user-avatar {
+            flex-shrink: 0 !important;
+        }
+
+        .user-name {
+            white-space: nowrap !important;
+        }
+
+        /* 3. Fix Date column - Date on one line, time-ago below */
+        .date-container {
+            display: inline-block !important;
+            white-space: nowrap !important;
+        }
+
+        .date-main {
+            display: block !important;
+            white-space: nowrap !important;
+        }
+
+        .time-ago {
+            display: block !important;
+            white-space: nowrap !important;
+            font-size: 0.65rem !important;
+            font-style: italic !important;
+            font-weight: 600 !important;
+            color: #6b7280 !important;
+        }
+
+        /* 4. Set minimum table width to force horizontal scroll */
+        .enhanced-table,
+        #clientTable {
+            min-width: 1600px !important;
+            table-layout: auto !important;
+        }
+
+        .table-responsive-wrapper {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* 5. Ensure all nested elements don't wrap */
+        #clientTable td *,
+        .enhanced-table td * {
+            white-space: nowrap !important;
+        }
+
+        /* Exception only for time-ago which should be on its own line below date */
+        .time-ago {
+            white-space: nowrap !important;
+        }
+
+        /* 6. Status badges should not wrap */
+        .status-indicator,
+        .status-badge {
+            white-space: nowrap !important;
+            display: inline-flex !important;
+        }
     </style>
 </head>
 <body>
