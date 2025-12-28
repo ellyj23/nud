@@ -890,23 +890,16 @@
   line-height: 1;
 }
 
-/* Date container for wrapping date and time-ago */
+/* Date container for vertical stacking of date and time-ago */
 .date-container {
   display: flex;
-  flex-direction: column;
+  flex-direction: column; /* Stack date and time-ago vertically */
   gap: 0.15rem;
-  white-space: nowrap; /* Keep date on single line */
 }
 
 .date-main {
-  white-space: nowrap;
+  white-space: nowrap; /* Prevent the date text itself from wrapping */
   line-height: 1.2;
-}
-
-/* Single-line table cell styling - already set on th/td above */
-/* Allow specific containers to have vertical flex layout */
-.enhanced-table td .date-container {
-  white-space: nowrap; /* Override to keep everything single line horizontally */
 }
 
 .paid-container {
