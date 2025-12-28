@@ -79,8 +79,10 @@ try {
     
     // 24-hour delay filter for JOSEPH records during search/filter
     // Hide JOSEPH records created less than 24 hours ago when searching or filtering
+    // Use date column as fallback since created_at may not exist
+    // Only hide JOSEPH records if they were added today (within 24 hours based on date field)
     if ($isSearchActive || $isFilterActive) {
-        $where_clauses[] = "(UPPER(Responsible) NOT LIKE '%JOSEPH%' OR created_at IS NULL OR created_at <= DATE_SUB(NOW(), INTERVAL 24 HOUR))";
+        $where_clauses[] = "(UPPER(Responsible) NOT LIKE '%JOSEPH%' OR date < CURDATE())";
     }
     
     if (!empty($_GET['filterDateFrom'])) {
