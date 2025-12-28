@@ -152,7 +152,9 @@ class ClientDocumentPDF extends FPDF
                 } catch (Exception $e) {
                     // If image fails, continue without QR code
                 }
-                @unlink($qrCodePath); // Clean up temp file
+                if (file_exists($qrCodePath) && !unlink($qrCodePath)) {
+                    error_log("Failed to delete temporary QR code file: " . $qrCodePath);
+                }
             }
             
             // Try to add barcode using secure temp file
@@ -163,7 +165,9 @@ class ClientDocumentPDF extends FPDF
                 } catch (Exception $e) {
                     // If image fails, continue without barcode
                 }
-                @unlink($barcodePath); // Clean up temp file
+                if (file_exists($barcodePath) && !unlink($barcodePath)) {
+                    error_log("Failed to delete temporary barcode file: " . $barcodePath);
+                }
             }
             
             // Add verification text

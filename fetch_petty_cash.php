@@ -21,7 +21,7 @@ require_once 'db.php';
 try {
     // Pagination parameters
     $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
-    $limit = isset($_GET['limit']) ? max(1, intval($_GET['limit'])) : 20; // Default 20, no max limit
+    $limit = isset($_GET['limit']) ? max(1, min(10000, intval($_GET['limit']))) : 20; // Default 20, max 10000 for performance
     $offset = ($page - 1) * $limit;
     
     // Build SQL query with filters including new fields
