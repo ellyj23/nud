@@ -920,7 +920,6 @@
   align-items: center;
   gap: 0.5rem;
   white-space: nowrap;
-  flex-direction: row; /* Explicitly set to horizontal layout */
 }
 
 /* Enable horizontal scrolling for table */
