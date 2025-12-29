@@ -153,6 +153,7 @@ try {
                         beneficiary = :beneficiary,
                         purpose = :purpose,
                         amount = :amount,
+                        currency = :currency,
                         transaction_type = :transaction_type,
                         category_id = :category_id,
                         payment_method = :payment_method,
@@ -168,6 +169,7 @@ try {
                 ':beneficiary' => $data['beneficiary'] ?? null,
                 ':purpose' => $data['purpose'] ?? null,
                 ':amount' => $data['amount'],
+                ':currency' => $data['currency'] ?? 'RWF',
                 ':transaction_type' => $data['transaction_type'],
                 ':category_id' => $data['category_id'] ?? null,
                 ':payment_method' => $data['payment_method'] ?? null,
@@ -178,7 +180,7 @@ try {
             // Log edit history for changed fields
             if ($oldValues) {
                 $changedFields = [];
-                $fieldsToTrack = ['transaction_date', 'description', 'amount', 'transaction_type', 'category_id'];
+                $fieldsToTrack = ['transaction_date', 'description', 'amount', 'currency', 'transaction_type', 'category_id'];
                 foreach ($fieldsToTrack as $field) {
                     if (isset($data[$field]) && $oldValues[$field] != $data[$field]) {
                         $changedFields[] = [
