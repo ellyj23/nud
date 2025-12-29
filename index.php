@@ -1338,6 +1338,8 @@ $(document).ready(function() {
     function cancelEditing() {
         const editingRow = $('tr.editing-row');
         if (editingRow.length) {
+            const ANIMATION_DURATION = 300; // Match CSS animation duration
+            
             // Add exit animation
             editingRow.removeClass('editing-row').addClass('editing-row-exit');
             
@@ -1347,7 +1349,7 @@ $(document).ready(function() {
             // Restore original HTML after animation
             setTimeout(() => {
                 editingRow.replaceWith(editingRow.data('originalHTML'));
-            }, 300);
+            }, ANIMATION_DURATION);
         }
     }
 
@@ -1463,11 +1465,18 @@ $(document).ready(function() {
     });
     
     // Prevent accidental navigation away while editing
-    $(document).on('click', 'a, button:not(.saveBtn):not(.cancelBtn)', function(e) {
-        if ($('.editing-row').length > 0) {
+    $(document).on('click', 'a:not(.allow-during-edit), button:not(.saveBtn):not(.cancelBtn):not(.allow-during-edit)', function(e) {
+        const $editingRow = $('.editing-row');
+        if ($editingRow.length > 0) {
+            // Allow interactions within the editing row itself
+            if ($(this).closest('.editing-row').length > 0) {
+                return true;
+            }
+            
             const confirmed = confirm('You have unsaved changes. Do you want to discard them?');
             if (!confirmed) {
                 e.preventDefault();
+                e.stopPropagation();
                 return false;
             } else {
                 cancelEditing();

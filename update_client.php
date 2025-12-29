@@ -85,7 +85,7 @@ if ($paid_amount === false) {
 
 // First, fetch existing client data to support partial updates
 try {
-    $fetchStmt = $pdo->prepare("SELECT * FROM clients WHERE id = :id");
+    $fetchStmt = $pdo->prepare("SELECT id, reg_no, client_name, date, Responsible, TIN, service, amount, currency, paid_amount, due_amount, status FROM clients WHERE id = :id");
     $fetchStmt->execute([':id' => $id]);
     $existingData = $fetchStmt->fetch(PDO::FETCH_ASSOC);
     
