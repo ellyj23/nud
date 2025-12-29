@@ -28,7 +28,7 @@ try {
     // Handle the main search query
     if (isset($_GET['searchQuery']) && trim($_GET['searchQuery']) !== '') {
         $searchQuery = '%' . trim($_GET['searchQuery']) . '%';
-        $where_clauses[] = "(reg_no LIKE :searchQuery OR client_name LIKE :searchQuery OR phone_number LIKE :searchQuery)";
+        $where_clauses[] = "(reg_no LIKE :searchQuery OR client_name LIKE :searchQuery OR Responsible LIKE :searchQuery)";
         $params[':searchQuery'] = $searchQuery;
     }
 
