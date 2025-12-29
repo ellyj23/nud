@@ -72,18 +72,21 @@ try {
     $isFilterActive = !empty($_GET['filterDateFrom']) || !empty($_GET['filterDateTo']) || 
                       !empty($_GET['filterPaidStatus']) || !empty($_GET['filterCurrency']);
 
-    // **FIXED**: Use unique named placeholders for the search query to prevent "Invalid parameter number" error.
+    // **FIXED**: Simplified search query using PDO parameterized queries
     if ($isSearchActive) {
         // Simple search without complex escaping - PDO handles special characters in parameterized queries
         $searchTerm = trim($_GET['searchQuery']);
+        
+        // Limit search term length to prevent performance issues
+        if (strlen($searchTerm) > 100) {
+            $searchTerm = substr($searchTerm, 0, 100);
+        }
+        
         $searchQuery = '%' . $searchTerm . '%';
         // Search by reg_no, client_name, Responsible, TIN, and service
-        $where_clauses[] = "(reg_no LIKE :searchQuery1 OR client_name LIKE :searchQuery2 OR Responsible LIKE :searchQuery3 OR TIN LIKE :searchQuery4 OR service LIKE :searchQuery5)";
-        $params[':searchQuery1'] = $searchQuery;
-        $params[':searchQuery2'] = $searchQuery;
-        $params[':searchQuery3'] = $searchQuery;
-        $params[':searchQuery4'] = $searchQuery;
-        $params[':searchQuery5'] = $searchQuery;
+        // Using single parameter repeated across all LIKE clauses for simplicity
+        $where_clauses[] = "(reg_no LIKE :searchQuery OR client_name LIKE :searchQuery OR Responsible LIKE :searchQuery OR TIN LIKE :searchQuery OR service LIKE :searchQuery)";
+        $params[':searchQuery'] = $searchQuery;
     }
     
     // Filter out entries containing "?" character from frontend display
