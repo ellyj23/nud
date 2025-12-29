@@ -26,7 +26,7 @@ try {
     
     // Build SQL query with filters including new fields
     $sql = "SELECT pc.id, pc.user_id, pc.transaction_date, pc.description, pc.beneficiary, pc.purpose,
-                   pc.amount, pc.transaction_type, pc.category_id, pc.payment_method, pc.reference,
+                   pc.amount, pc.currency, pc.transaction_type, pc.category_id, pc.payment_method, pc.reference,
                    pc.receipt_path, pc.approval_status, pc.approved_by, pc.approved_at, pc.is_locked, pc.notes,
                    pc.created_at, pc.updated_at,
                    c.name as category_name, c.icon as category_icon, c.color as category_color,
