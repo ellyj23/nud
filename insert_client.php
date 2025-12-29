@@ -69,18 +69,26 @@ if ($paid_amount >= $amount && $amount > 0) {
 try {
     $pdo->beginTransaction();
 
-    // Check for duplicate reg_no
+    // Check for duplicate reg_no considering year and service type
+    // Same reg_no is allowed if the year (from date) or service type is different
     if (!empty($reg_no)) {
-        $checkSql = "SELECT COUNT(*) FROM clients WHERE reg_no = :reg_no";
+        $checkSql = "SELECT COUNT(*) FROM clients 
+                     WHERE reg_no = :reg_no 
+                     AND YEAR(date) = YEAR(:date) 
+                     AND service = :service";
         $checkStmt = $pdo->prepare($checkSql);
-        $checkStmt->execute([':reg_no' => $reg_no]);
+        $checkStmt->execute([
+            ':reg_no' => $reg_no,
+            ':date' => $date,
+            ':service' => $service
+        ]);
         $count = $checkStmt->fetchColumn();
         
         if ($count > 0) {
             http_response_code(400);
             echo json_encode([
                 'success' => false,
-                'error' => 'Duplicate Registration Number: This reg no already exists in the system'
+                'error' => 'Duplicate Registration Number: This reg no with the same service type already exists for this year'
             ]);
             exit;
         }

@@ -30,6 +30,29 @@ if (!userHasPermission($_SESSION['user_id'], 'edit-client')) {
 
 // Get POST data using modern, safe methods
 $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+
+// Validate amount - allow 0 but not false
+$amount = filter_input(INPUT_POST, 'amount', FILTER_VALIDATE_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+if ($amount === false && isset($_POST['amount'])) {
+    // Try to clean the input and parse again
+    $amountCleaned = preg_replace('/[^0-9.]/', '', $_POST['amount']);
+    $amount = filter_var($amountCleaned, FILTER_VALIDATE_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+}
+if ($amount === false) {
+    $amount = 0;
+}
+
+// Validate paid_amount - allow 0 but not false
+$paid_amount = filter_input(INPUT_POST, 'paid_amount', FILTER_VALIDATE_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+if ($paid_amount === false && isset($_POST['paid_amount'])) {
+    // Try to clean the input and parse again
+    $paidCleaned = preg_replace('/[^0-9.]/', '', $_POST['paid_amount']);
+    $paid_amount = filter_var($paidCleaned, FILTER_VALIDATE_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+}
+if ($paid_amount === false) {
+    $paid_amount = 0;
+}
+
 $newData = [
     'reg_no' => isset($_POST['reg_no']) ? htmlspecialchars(trim($_POST['reg_no']), ENT_QUOTES, 'UTF-8') : '',
     'client_name' => isset($_POST['client_name']) ? htmlspecialchars(trim($_POST['client_name']), ENT_QUOTES, 'UTF-8') : '',
@@ -38,13 +61,13 @@ $newData = [
     'TIN' => isset($_POST['TIN']) ? htmlspecialchars(trim($_POST['TIN']), ENT_QUOTES, 'UTF-8') : '',
     'service' => isset($_POST['service']) ? htmlspecialchars(trim($_POST['service']), ENT_QUOTES, 'UTF-8') : '',
     'currency' => isset($_POST['currency']) ? htmlspecialchars(trim($_POST['currency']), ENT_QUOTES, 'UTF-8') : '',
-    'amount' => filter_input(INPUT_POST, 'amount', FILTER_VALIDATE_FLOAT),
-    'paid_amount' => filter_input(INPUT_POST, 'paid_amount', FILTER_VALIDATE_FLOAT, ['options' => ['default' => 0]])
+    'amount' => $amount,
+    'paid_amount' => $paid_amount
 ];
 
-if (!$id || empty($newData['client_name']) || $newData['amount'] === false || $newData['paid_amount'] === false) {
+if (!$id || empty($newData['client_name'])) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'Invalid input data. Client ID, Name, Amount, and Paid Amount are required.']);
+    echo json_encode(['success' => false, 'error' => 'Invalid input data. Client ID and Name are required.']);
     exit;
 }
 
@@ -75,6 +98,35 @@ try {
     $oldData = $oldStmt->fetch(PDO::FETCH_ASSOC);
     if (!$oldData) {
         throw new Exception("Client with ID $id not found.");
+    }
+
+    // Check for duplicate reg_no considering year and service type
+    // Same reg_no is allowed if the year (from date) or service type is different
+    // Exclude current record from duplicate check
+    if (!empty($newData['reg_no'])) {
+        $checkSql = "SELECT COUNT(*) FROM clients 
+                     WHERE reg_no = :reg_no 
+                     AND YEAR(date) = YEAR(:date) 
+                     AND service = :service 
+                     AND id != :id";
+        $checkStmt = $pdo->prepare($checkSql);
+        $checkStmt->execute([
+            ':reg_no' => $newData['reg_no'],
+            ':date' => $newData['date'],
+            ':service' => $newData['service'],
+            ':id' => $id
+        ]);
+        $count = $checkStmt->fetchColumn();
+        
+        if ($count > 0) {
+            $pdo->rollBack();
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'error' => 'Duplicate Registration Number: This reg no with the same service type already exists for this year'
+            ]);
+            exit;
+        }
     }
 
     $sql = "UPDATE clients SET reg_no=:reg_no, client_name=:client_name, date=:date, Responsible=:Responsible, TIN=:TIN, service=:service, amount=:amount, currency=:currency, paid_amount=:paid_amount, due_amount=:due_amount, status=:status WHERE id=:id";
