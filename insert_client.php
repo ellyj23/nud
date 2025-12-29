@@ -85,6 +85,7 @@ try {
         $count = $checkStmt->fetchColumn();
         
         if ($count > 0) {
+            $pdo->rollBack();
             http_response_code(400);
             echo json_encode([
                 'success' => false,
