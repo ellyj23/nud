@@ -34,6 +34,14 @@ $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
 /**
  * Helper function to clean and validate numeric input
  * Handles formatted numbers with commas and multiple decimal points
+ * 
+ * Note: For inputs with multiple decimal points (e.g., "12.34.56"), 
+ * this function combines all digits after the first decimal into 
+ * decimal places (resulting in "12.3456"). This handles cases like
+ * "1,234.56" (which becomes "1234.56" after comma removal).
+ * 
+ * @param mixed $value The input value to clean
+ * @return float The cleaned numeric value, or 0 if invalid
  */
 function cleanNumericInput($value) {
     if ($value === false) {
@@ -44,6 +52,8 @@ function cleanNumericInput($value) {
         return floatval($value);
     }
     // Clean the input - remove everything except digits and decimal points
+    // Note: Negative signs are intentionally excluded as negative amounts
+    // are not valid in this business context (logistics billing)
     $cleaned = preg_replace('/[^0-9.]/', '', $value);
     // Handle multiple decimal points by keeping only the first one
     if (substr_count($cleaned, '.') > 1) {
@@ -123,6 +133,10 @@ try {
     // Check for duplicate reg_no considering year and service type
     // Same reg_no is allowed if the year (from date) or service type is different
     // Exclude current record from duplicate check
+    // 
+    // Note: This query uses YEAR(date) which prevents index usage on the date column.
+    // For better performance with large datasets, consider adding a composite index:
+    // CREATE INDEX idx_reg_year_service ON clients(reg_no, date, service);
     if (!empty($newData['reg_no'])) {
         $checkSql = "SELECT COUNT(*) FROM clients 
                      WHERE reg_no = :reg_no 

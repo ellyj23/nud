@@ -71,6 +71,10 @@ try {
 
     // Check for duplicate reg_no considering year and service type
     // Same reg_no is allowed if the year (from date) or service type is different
+    // 
+    // Note: This query uses YEAR(date) which prevents index usage on the date column.
+    // For better performance with large datasets, consider adding a composite index:
+    // CREATE INDEX idx_reg_year_service ON clients(reg_no, date, service);
     if (!empty($reg_no)) {
         $checkSql = "SELECT COUNT(*) FROM clients 
                      WHERE reg_no = :reg_no 
