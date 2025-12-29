@@ -30,6 +30,59 @@ if (!userHasPermission($_SESSION['user_id'], 'edit-client')) {
 
 // Get POST data using modern, safe methods
 $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+
+/**
+ * Helper function to clean and validate numeric input
+ * Handles formatted numbers with commas and multiple decimal points
+ * 
+ * Note: For inputs with multiple decimal points (e.g., "12.34.56"), 
+ * this function combines all digits after the first decimal into 
+ * decimal places (resulting in "12.3456"). This handles cases like
+ * "1,234.56" (which becomes "1234.56" after comma removal).
+ * 
+ * @param mixed $value The input value to clean
+ * @return float The cleaned numeric value, or 0 if invalid
+ */
+function cleanNumericInput($value) {
+    if ($value === false) {
+        return 0;
+    }
+    // If already a valid number, return it
+    if (is_numeric($value)) {
+        return floatval($value);
+    }
+    // Clean the input - remove everything except digits and decimal points
+    // Note: Negative signs are intentionally excluded as negative amounts
+    // are not valid in this business context (logistics billing)
+    $cleaned = preg_replace('/[^0-9.]/', '', $value);
+    // Handle multiple decimal points by keeping only the first one
+    if (substr_count($cleaned, '.') > 1) {
+        $parts = explode('.', $cleaned);
+        $cleaned = $parts[0] . '.' . implode('', array_slice($parts, 1));
+    }
+    // Validate and return
+    $result = filter_var($cleaned, FILTER_VALIDATE_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+    return ($result === false) ? 0 : $result;
+}
+
+// Validate amount - allow 0 but not false
+$amount = filter_input(INPUT_POST, 'amount', FILTER_VALIDATE_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+if ($amount === false && isset($_POST['amount'])) {
+    $amount = cleanNumericInput($_POST['amount']);
+}
+if ($amount === false) {
+    $amount = 0;
+}
+
+// Validate paid_amount - allow 0 but not false
+$paid_amount = filter_input(INPUT_POST, 'paid_amount', FILTER_VALIDATE_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+if ($paid_amount === false && isset($_POST['paid_amount'])) {
+    $paid_amount = cleanNumericInput($_POST['paid_amount']);
+}
+if ($paid_amount === false) {
+    $paid_amount = 0;
+}
+
 $newData = [
     'reg_no' => isset($_POST['reg_no']) ? htmlspecialchars(trim($_POST['reg_no']), ENT_QUOTES, 'UTF-8') : '',
     'client_name' => isset($_POST['client_name']) ? htmlspecialchars(trim($_POST['client_name']), ENT_QUOTES, 'UTF-8') : '',
@@ -38,13 +91,13 @@ $newData = [
     'TIN' => isset($_POST['TIN']) ? htmlspecialchars(trim($_POST['TIN']), ENT_QUOTES, 'UTF-8') : '',
     'service' => isset($_POST['service']) ? htmlspecialchars(trim($_POST['service']), ENT_QUOTES, 'UTF-8') : '',
     'currency' => isset($_POST['currency']) ? htmlspecialchars(trim($_POST['currency']), ENT_QUOTES, 'UTF-8') : '',
-    'amount' => filter_input(INPUT_POST, 'amount', FILTER_VALIDATE_FLOAT),
-    'paid_amount' => filter_input(INPUT_POST, 'paid_amount', FILTER_VALIDATE_FLOAT, ['options' => ['default' => 0]])
+    'amount' => $amount,
+    'paid_amount' => $paid_amount
 ];
 
-if (!$id || empty($newData['client_name']) || $newData['amount'] === false || $newData['paid_amount'] === false) {
+if (!$id || empty($newData['client_name'])) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'Invalid input data. Client ID, Name, Amount, and Paid Amount are required.']);
+    echo json_encode(['success' => false, 'error' => 'Invalid input data. Client ID and Name are required.']);
     exit;
 }
 
@@ -75,6 +128,39 @@ try {
     $oldData = $oldStmt->fetch(PDO::FETCH_ASSOC);
     if (!$oldData) {
         throw new Exception("Client with ID $id not found.");
+    }
+
+    // Check for duplicate reg_no considering year and service type
+    // Same reg_no is allowed if the year (from date) or service type is different
+    // Exclude current record from duplicate check
+    // 
+    // Note: This query uses YEAR(date) which prevents index usage on the date column.
+    // For better performance with large datasets, consider adding a composite index:
+    // CREATE INDEX idx_reg_year_service ON clients(reg_no, date, service);
+    if (!empty($newData['reg_no'])) {
+        $checkSql = "SELECT COUNT(*) FROM clients 
+                     WHERE reg_no = :reg_no 
+                     AND YEAR(date) = YEAR(:date) 
+                     AND service = :service 
+                     AND id != :id";
+        $checkStmt = $pdo->prepare($checkSql);
+        $checkStmt->execute([
+            ':reg_no' => $newData['reg_no'],
+            ':date' => $newData['date'],
+            ':service' => $newData['service'],
+            ':id' => $id
+        ]);
+        $count = $checkStmt->fetchColumn();
+        
+        if ($count > 0) {
+            $pdo->rollBack();
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'error' => 'Duplicate Registration Number: This reg no with the same service type already exists for this year'
+            ]);
+            exit;
+        }
     }
 
     $sql = "UPDATE clients SET reg_no=:reg_no, client_name=:client_name, date=:date, Responsible=:Responsible, TIN=:TIN, service=:service, amount=:amount, currency=:currency, paid_amount=:paid_amount, due_amount=:due_amount, status=:status WHERE id=:id";
