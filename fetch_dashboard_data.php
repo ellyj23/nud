@@ -79,13 +79,22 @@ try {
         $searchTerm = trim($_GET['searchQuery']);
         $searchTerm = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $searchTerm);
         $searchQuery = '%' . $searchTerm . '%';
-        // Search by reg_no, client_name, Responsible, and TIN
-        $where_clauses[] = "(reg_no LIKE :searchQuery1 ESCAPE '\\' OR client_name LIKE :searchQuery2 ESCAPE '\\' OR Responsible LIKE :searchQuery3 ESCAPE '\\' OR TIN LIKE :searchQuery4 ESCAPE '\\')";
+        // Search by reg_no, client_name, Responsible, TIN, and service
+        $where_clauses[] = "(reg_no LIKE :searchQuery1 ESCAPE '\\' OR client_name LIKE :searchQuery2 ESCAPE '\\' OR Responsible LIKE :searchQuery3 ESCAPE '\\' OR TIN LIKE :searchQuery4 ESCAPE '\\' OR service LIKE :searchQuery5 ESCAPE '\\')";
         $params[':searchQuery1'] = $searchQuery;
         $params[':searchQuery2'] = $searchQuery;
         $params[':searchQuery3'] = $searchQuery;
         $params[':searchQuery4'] = $searchQuery;
+        $params[':searchQuery5'] = $searchQuery;
     }
+    
+    // Filter out entries containing "?" character from frontend display
+    // This hides entries with ? from the table but they still count in dashboard statistics
+    $where_clauses[] = "client_name NOT LIKE '%?%'";
+    $where_clauses[] = "COALESCE(reg_no, '') NOT LIKE '%?%'";
+    $where_clauses[] = "COALESCE(Responsible, '') NOT LIKE '%?%'";
+    $where_clauses[] = "COALESCE(service, '') NOT LIKE '%?%'";
+    $where_clauses[] = "COALESCE(TIN, '') NOT LIKE '%?%'";
     
     // 24-hour delay filter for JOSEPH records during search/filter
     // Hide JOSEPH records created less than 24 hours ago when searching or filtering
