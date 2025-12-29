@@ -87,9 +87,13 @@ try {
         
         $searchQuery = '%' . $searchTerm . '%';
         // Search by reg_no, client_name, Responsible, TIN, and service
-        // Parameter reuse is supported by MySQL/MariaDB even with native prepared statements
-        $where_clauses[] = "(reg_no LIKE :searchQuery OR client_name LIKE :searchQuery OR Responsible LIKE :searchQuery OR TIN LIKE :searchQuery OR service LIKE :searchQuery)";
-        $params[':searchQuery'] = $searchQuery;
+        // Each field needs its own parameter when using native prepared statements (PDO::ATTR_EMULATE_PREPARES => false)
+        $where_clauses[] = "(reg_no LIKE :searchQuery1 OR client_name LIKE :searchQuery2 OR Responsible LIKE :searchQuery3 OR TIN LIKE :searchQuery4 OR service LIKE :searchQuery5)";
+        $params[':searchQuery1'] = $searchQuery;
+        $params[':searchQuery2'] = $searchQuery;
+        $params[':searchQuery3'] = $searchQuery;
+        $params[':searchQuery4'] = $searchQuery;
+        $params[':searchQuery5'] = $searchQuery;
     }
     
     // Filter out entries containing "?" character from frontend display
