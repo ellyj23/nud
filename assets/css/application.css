@@ -1339,3 +1339,271 @@
   white-space: nowrap !important;
   border: 0 !important;
 }
+
+/* ==========================================================================
+   PROFESSIONAL INLINE EDITING STYLES
+   ========================================================================== */
+
+/* Row being edited - smooth transition */
+.editing-row {
+  background-color: #f0f9ff !important;
+  box-shadow: inset 0 0 0 2px var(--primary-500);
+  animation: editModeEnter 0.3s ease-out;
+  position: relative;
+}
+
+@keyframes editModeEnter {
+  from {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 0px var(--primary-500);
+  }
+  to {
+    background-color: #f0f9ff;
+    box-shadow: inset 0 0 0 2px var(--primary-500);
+  }
+}
+
+/* Prevent editing other rows while one is in edit mode */
+.editing-active .editBtn:not(.editing-row .editBtn) {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Inline edit form controls */
+.editing-row .form-control,
+.editing-row .form-select {
+  padding: 0.5rem;
+  font-size: var(--font-size-sm);
+  border: 2px solid var(--border-primary);
+  border-radius: var(--radius-base);
+  transition: all var(--transition-fast);
+  background-color: var(--bg-primary);
+}
+
+.editing-row .form-control:focus,
+.editing-row .form-select:focus {
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  outline: none;
+  background-color: #ffffff;
+}
+
+/* Validation states */
+.editing-row .form-control.invalid,
+.editing-row .form-select.invalid {
+  border-color: var(--error-500);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.editing-row .form-control.valid,
+.editing-row .form-select.valid {
+  border-color: var(--success-500);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+/* Real-time preview indicators */
+.edit-preview {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 0.25rem;
+  display: block;
+  animation: fadeIn 0.2s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.edit-preview.preview-due {
+  color: var(--primary-600);
+  font-weight: var(--font-weight-semibold);
+}
+
+.edit-preview.preview-status {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-full);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+}
+
+.edit-preview.preview-status.paid {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.edit-preview.preview-status.partially-paid {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.edit-preview.preview-status.not-paid {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+/* Save and Cancel buttons with icons */
+.editing-row .saveBtn,
+.editing-row .cancelBtn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: var(--radius-base);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.editing-row .saveBtn::before {
+  content: '✓';
+  font-size: var(--font-size-base);
+}
+
+.editing-row .saveBtn {
+  background: linear-gradient(135deg, var(--success-600), var(--success-500));
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.editing-row .saveBtn:hover {
+  background: linear-gradient(135deg, var(--success-700), var(--success-600));
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.editing-row .saveBtn:active {
+  transform: translateY(0);
+}
+
+/* Loading state on save button */
+.editing-row .saveBtn.loading {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.editing-row .saveBtn.loading::before {
+  content: '';
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.editing-row .cancelBtn::before {
+  content: '×';
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.editing-row .cancelBtn {
+  background-color: var(--gray-100);
+  color: var(--gray-700);
+  border: 1px solid var(--gray-300);
+}
+
+.editing-row .cancelBtn:hover {
+  background-color: var(--gray-200);
+  border-color: var(--gray-400);
+  transform: translateY(-1px);
+}
+
+.editing-row .cancelBtn:active {
+  transform: translateY(0);
+}
+
+/* Smooth exit animation */
+.editing-row-exit {
+  animation: editModeExit 0.3s ease-out;
+}
+
+@keyframes editModeExit {
+  from {
+    background-color: #f0f9ff;
+    box-shadow: inset 0 0 0 2px var(--primary-500);
+  }
+  to {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 0px var(--primary-500);
+  }
+}
+
+/* Enhanced toast notifications for inline editing */
+.edit-toast {
+  position: fixed;
+  top: var(--space-6);
+  right: var(--space-6);
+  padding: var(--space-4) var(--space-6);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  z-index: var(--z-tooltip);
+  transform: translateX(400px);
+  opacity: 0;
+  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: 400px;
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
+}
+
+.edit-toast.show {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.edit-toast.success {
+  background: linear-gradient(135deg, var(--success-600), var(--success-500));
+  color: white;
+}
+
+.edit-toast.success::before {
+  content: '✓';
+  font-size: 1.25rem;
+  font-weight: bold;
+}
+
+.edit-toast.error {
+  background: linear-gradient(135deg, var(--error-500), var(--error-600));
+  color: white;
+}
+
+.edit-toast.error::before {
+  content: '⚠';
+  font-size: 1.25rem;
+}
+
+/* Mobile responsive inline editing */
+@media (max-width: 768px) {
+  .editing-row .form-control,
+  .editing-row .form-select {
+    padding: 0.375rem;
+    font-size: var(--font-size-xs);
+  }
+  
+  .editing-row .saveBtn,
+  .editing-row .cancelBtn {
+    padding: 0.375rem 0.75rem;
+    font-size: var(--font-size-xs);
+  }
+  
+  .edit-toast {
+    left: var(--space-4);
+    right: var(--space-4);
+    max-width: none;
+  }
+}
