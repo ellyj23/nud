@@ -2,6 +2,9 @@
 session_start();
 header('Content-Type: application/json');
 
+// --- Configuration Constants ---
+const MAX_SEARCH_TERM_LENGTH = 100; // Maximum characters allowed in search query
+
 // --- Authenticate User ---
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     http_response_code(401);
@@ -78,8 +81,8 @@ try {
         $searchTerm = trim($_GET['searchQuery']);
         
         // Limit search term length to prevent performance issues (use mb_substr for multi-byte character support)
-        if (mb_strlen($searchTerm) > 100) {
-            $searchTerm = mb_substr($searchTerm, 0, 100);
+        if (mb_strlen($searchTerm) > MAX_SEARCH_TERM_LENGTH) {
+            $searchTerm = mb_substr($searchTerm, 0, MAX_SEARCH_TERM_LENGTH);
         }
         
         $searchQuery = '%' . $searchTerm . '%';
