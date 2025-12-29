@@ -841,11 +841,12 @@ require_once 'header.php';
                 tr.cells[2].innerHTML = `<textarea name="description" style="min-height: 60px;">${tx.description}</textarea>`;
                 tr.cells[3].innerHTML = `<select name="payment_method"><option value="">--</option><option>CASH</option><option>BANK</option><option>MTN</option><option>OTHER</option></select>`;
                 tr.cells[4].innerHTML = `<input type="text" name="reference" value="${tx.reference || ''}">`;
-                tr.cells[5].innerHTML = `<input type="number" step="0.01" name="amount" value="${tx.amount}">`;
+                tr.cells[5].innerHTML = `<input type="number" step="0.01" name="amount" value="${tx.amount}" style="width: 100px; margin-right: 5px;"><select name="currency" style="width: 70px;"><option value="RWF">RWF</option><option value="USD">USD</option><option value="EUR">EUR</option><option value="GBP">GBP</option></select>`;
                 tr.cells[6].innerHTML = `<div class="tx-actions"><button class="btn success btn-sm save-btn"><svg class="icon"><use href="#icon-check"/></svg>Save</button><button class="btn secondary btn-sm cancel-edit-btn"><svg class="icon"><use href="#icon-x"/></svg>Cancel</button></div>`;
 
                 tr.querySelector('[name="transaction_type"]').value = tx.transaction_type;
                 tr.querySelector('[name="payment_method"]').value = tx.payment_method || '';
+                tr.querySelector('[name="currency"]').value = tx.currency || 'RWF';
                 Array.from(tr.cells).slice(0, 6).forEach(cell => cell.classList.add('inline-edit-cell'));
             }
 
