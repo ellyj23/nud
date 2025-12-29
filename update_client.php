@@ -165,9 +165,23 @@ try {
 
     $sql = "UPDATE clients SET reg_no=:reg_no, client_name=:client_name, date=:date, Responsible=:Responsible, TIN=:TIN, service=:service, amount=:amount, currency=:currency, paid_amount=:paid_amount, due_amount=:due_amount, status=:status WHERE id=:id";
     $stmt = $pdo->prepare($sql);
-    $updateData = array_merge($newData, ['id' => $id]);
-    // Convert empty TIN to null
-    $updateData['TIN'] = !empty($updateData['TIN']) ? $updateData['TIN'] : null;
+    
+    // Prepare data with colon-prefixed keys to match the SQL named parameters
+    $updateData = [
+        ':reg_no' => $newData['reg_no'],
+        ':client_name' => $newData['client_name'],
+        ':date' => $newData['date'],
+        ':Responsible' => $newData['Responsible'],
+        ':TIN' => !empty($newData['TIN']) ? $newData['TIN'] : null,
+        ':service' => $newData['service'],
+        ':amount' => $newData['amount'],
+        ':currency' => $newData['currency'],
+        ':paid_amount' => $newData['paid_amount'],
+        ':due_amount' => $newData['due_amount'],
+        ':status' => $newData['status'],
+        ':id' => $id
+    ];
+    
     $stmt->execute($updateData);
 
     // Generate a detailed history log
