@@ -83,16 +83,34 @@ if ($paid_amount === false) {
     $paid_amount = 0;
 }
 
+// First, fetch existing client data to support partial updates
+try {
+    $fetchStmt = $pdo->prepare("SELECT id, reg_no, client_name, date, Responsible, TIN, service, amount, currency, paid_amount, due_amount, status FROM clients WHERE id = :id");
+    $fetchStmt->execute([':id' => $id]);
+    $existingData = $fetchStmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$existingData) {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'error' => 'Client not found.']);
+        exit;
+    }
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Database error while fetching client data.', 'details' => $e->getMessage()]);
+    exit;
+}
+
+// Merge submitted data with existing data (preserve existing values if not provided)
 $newData = [
-    'reg_no' => isset($_POST['reg_no']) ? htmlspecialchars(trim($_POST['reg_no']), ENT_QUOTES, 'UTF-8') : '',
-    'client_name' => isset($_POST['client_name']) ? htmlspecialchars(trim($_POST['client_name']), ENT_QUOTES, 'UTF-8') : '',
-    'date' => isset($_POST['date']) ? trim($_POST['date']) : '',
-    'Responsible' => isset($_POST['Responsible']) ? htmlspecialchars(trim($_POST['Responsible']), ENT_QUOTES, 'UTF-8') : '',
-    'TIN' => isset($_POST['TIN']) ? htmlspecialchars(trim($_POST['TIN']), ENT_QUOTES, 'UTF-8') : '',
-    'service' => isset($_POST['service']) ? htmlspecialchars(trim($_POST['service']), ENT_QUOTES, 'UTF-8') : '',
-    'currency' => isset($_POST['currency']) ? htmlspecialchars(trim($_POST['currency']), ENT_QUOTES, 'UTF-8') : '',
-    'amount' => $amount,
-    'paid_amount' => $paid_amount
+    'reg_no' => isset($_POST['reg_no']) && $_POST['reg_no'] !== '' ? htmlspecialchars(trim($_POST['reg_no']), ENT_QUOTES, 'UTF-8') : $existingData['reg_no'],
+    'client_name' => isset($_POST['client_name']) && $_POST['client_name'] !== '' ? htmlspecialchars(trim($_POST['client_name']), ENT_QUOTES, 'UTF-8') : $existingData['client_name'],
+    'date' => isset($_POST['date']) && $_POST['date'] !== '' ? trim($_POST['date']) : $existingData['date'],
+    'Responsible' => isset($_POST['Responsible']) && $_POST['Responsible'] !== '' ? htmlspecialchars(trim($_POST['Responsible']), ENT_QUOTES, 'UTF-8') : $existingData['Responsible'],
+    'TIN' => isset($_POST['TIN']) && $_POST['TIN'] !== '' ? htmlspecialchars(trim($_POST['TIN']), ENT_QUOTES, 'UTF-8') : $existingData['TIN'],
+    'service' => isset($_POST['service']) && $_POST['service'] !== '' ? htmlspecialchars(trim($_POST['service']), ENT_QUOTES, 'UTF-8') : $existingData['service'],
+    'currency' => isset($_POST['currency']) && $_POST['currency'] !== '' ? htmlspecialchars(trim($_POST['currency']), ENT_QUOTES, 'UTF-8') : $existingData['currency'],
+    'amount' => isset($_POST['amount']) && $_POST['amount'] !== '' ? $amount : floatval($existingData['amount']),
+    'paid_amount' => isset($_POST['paid_amount']) && $_POST['paid_amount'] !== '' ? $paid_amount : floatval($existingData['paid_amount'])
 ];
 
 if (!$id || empty($newData['client_name'])) {

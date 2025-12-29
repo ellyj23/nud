@@ -1338,7 +1338,18 @@ $(document).ready(function() {
     function cancelEditing() {
         const editingRow = $('tr.editing-row');
         if (editingRow.length) {
-            editingRow.replaceWith(editingRow.data('originalHTML'));
+            const ANIMATION_DURATION = 300; // Match CSS animation duration
+            
+            // Add exit animation
+            editingRow.removeClass('editing-row').addClass('editing-row-exit');
+            
+            // Remove editing state from table
+            $('#clientTable').removeClass('editing-active');
+            
+            // Restore original HTML after animation
+            setTimeout(() => {
+                editingRow.replaceWith(editingRow.data('originalHTML'));
+            }, ANIMATION_DURATION);
         }
     }
 
@@ -1394,11 +1405,93 @@ $(document).ready(function() {
         });
     });
 
+    // Real-time calculation preview for inline editing
+    function updateEditPreview(row) {
+        const amount = parseFloat(row.find('.edit-amount').val()) || 0;
+        const paidAmount = parseFloat(row.find('.edit-paid').val()) || 0;
+        const dueAmount = amount - paidAmount;
+        
+        // Update DUE preview
+        const duePreview = row.find('.preview-due');
+        duePreview.text(`Due: ${dueAmount.toFixed(2)}`);
+        
+        // Update STATUS preview
+        const statusPreview = row.find('.preview-status');
+        let statusText = 'NOT PAID';
+        let statusClass = 'not-paid';
+        
+        if (amount > 0 && paidAmount >= amount) {
+            statusText = 'PAID';
+            statusClass = 'paid';
+        } else if (paidAmount > 0) {
+            statusText = 'PARTIALLY PAID';
+            statusClass = 'partially-paid';
+        }
+        
+        statusPreview.text(statusText)
+            .removeClass('paid partially-paid not-paid')
+            .addClass(statusClass);
+    }
+    
+    // Real-time preview updates when amount or paid_amount changes
+    $(document).on('input', '.editing-row .edit-amount, .editing-row .edit-paid', function() {
+        const row = $(this).closest('tr');
+        updateEditPreview(row);
+        
+        // Add visual validation
+        const val = parseFloat($(this).val());
+        if (isNaN(val) || val < 0) {
+            $(this).addClass('invalid').removeClass('valid');
+        } else {
+            $(this).addClass('valid').removeClass('invalid');
+        }
+    });
+    
+    // Keyboard shortcuts for inline editing
+    $(document).on('keydown', '.editing-row input, .editing-row select', function(e) {
+        const row = $(this).closest('tr');
+        
+        // Enter to save
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            row.find('.saveBtn').click();
+        }
+        
+        // Escape to cancel
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            row.find('.cancelBtn').click();
+        }
+    });
+    
+    // Prevent accidental navigation away while editing
+    $(document).on('click', 'a:not(.allow-during-edit), button:not(.saveBtn):not(.cancelBtn):not(.allow-during-edit)', function(e) {
+        const $editingRow = $('.editing-row');
+        if ($editingRow.length > 0) {
+            // Allow interactions within the editing row itself
+            if ($(this).closest('.editing-row').length > 0) {
+                return true;
+            }
+            
+            const confirmed = confirm('You have unsaved changes. Do you want to discard them?');
+            if (!confirmed) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            } else {
+                cancelEditing();
+            }
+        }
+    });
+
     $('#clientTable').on('click', '.editBtn', function() {
         cancelEditing();
         const row = $(this).closest('tr');
         row.data('originalHTML', row[0].outerHTML);
         const cells = row.children('td');
+        
+        // Mark table as having active editing
+        $('#clientTable').addClass('editing-active');
         
         // Extract text content, handling nested elements
         const getCleanText = (cell) => {
@@ -1424,37 +1517,83 @@ $(document).ready(function() {
             <td class="p-2">${$(cells[0]).html()}</td>
             <td class="p-2">${$(cells[1]).text()}</td>
             <td class="p-2"><input type="text" name="reg_no" class="form-control form-control-sm" value="${clientData.reg_no}"></td>
-            <td class="p-2"><input type="text" name="client_name" class="form-control form-control-sm" value="${clientData.client_name}"></td>
+            <td class="p-2"><input type="text" name="client_name" class="form-control form-control-sm" value="${clientData.client_name}" required></td>
             <td class="p-2"><input type="date" name="date" class="form-control form-control-sm" value="${clientData.date}"></td>
             <td class="p-2"><input type="text" name="Responsible" class="form-control form-control-sm" value="${clientData.Responsible}"></td>
             <td class="p-2"><input type="text" name="TIN" class="form-control form-control-sm" maxlength="9" pattern="[0-9]{1,9}" value="${clientData.TIN}"></td>
             <td class="p-2"><input type="text" name="service" class="form-control form-control-sm" value="${clientData.service}"></td>
-            <td class="p-2"><input type="number" name="amount" class="form-control form-control-sm" step="0.01" value="${clientData.amount}"></td>
+            <td class="p-2">
+                <input type="number" name="amount" class="form-control form-control-sm edit-amount" step="0.01" value="${clientData.amount}">
+            </td>
             <td class="p-2"><select name="currency" class="form-control form-control-sm form-select"><option value="RWF">RWF</option><option value="USD">USD</option><option value="EUR">EUR</option></select></td>
-            <td class="p-2"><input type="number" name="paid_amount" class="form-control form-control-sm" step="0.01" value="${clientData.paid_amount}"></td>
-            <td class="p-2" colspan="2"></td>
-            <td class="p-2 action-buttons-cell"><button class="saveBtn btn btn-success btn-sm">Save</button><button class="cancelBtn btn btn-secondary btn-sm">Cancel</button></td>
+            <td class="p-2">
+                <input type="number" name="paid_amount" class="form-control form-control-sm edit-paid" step="0.01" value="${clientData.paid_amount}">
+                <span class="edit-preview preview-due"></span>
+            </td>
+            <td class="p-2">
+                <span class="edit-preview preview-status"></span>
+            </td>
+            <td class="p-2"></td>
+            <td class="p-2 action-buttons-cell">
+                <button class="saveBtn btn btn-success btn-sm">Save</button>
+                <button class="cancelBtn btn btn-secondary btn-sm">Cancel</button>
+            </td>
         `;
         row.addClass('editing-row').html(editRowHtml);
         row.find('[name="currency"]').val(clientData.currency);
+        
+        // Calculate and show preview initially
+        updateEditPreview(row);
+        
+        // Auto-focus on first editable field
+        row.find('input:not([type="hidden"]):first').focus();
     });
 
     $('#clientTable').on('click', '.cancelBtn', cancelEditing);
 
     $('#clientTable').on('click', '.saveBtn', function() {
         const row = $(this).closest('tr');
+        const saveBtn = $(this);
+        
+        // Validate required fields
+        const clientName = row.find('[name="client_name"]').val();
+        if (!clientName || clientName.trim() === '') {
+            showToast('Client name is required', 'error');
+            row.find('[name="client_name"]').addClass('invalid').focus();
+            return;
+        }
+        
+        // Add loading state
+        saveBtn.addClass('loading').prop('disabled', true);
+        row.find('.cancelBtn').prop('disabled', true);
+        
         let formData = { id: row.data('id') };
-        row.find('input, select').each(function() { formData[$(this).attr('name')] = $(this).val(); });
+        row.find('input, select').each(function() { 
+            const name = $(this).attr('name');
+            if (name) {
+                formData[name] = $(this).val(); 
+            }
+        });
+        
         showLoading(true);
         $.ajax({
             url: 'update_client.php', type: 'POST', data: formData, dataType: 'json',
             success: function(response) {
                 if (response.success) {
-                    showToast('Client updated successfully!');
+                    showToast('Client updated successfully!', 'success');
+                    $('#clientTable').removeClass('editing-active');
                     loadData(); // Reload data after update
-                } else { cancelEditing(); handleAjaxError({responseJSON: response}, 'Update failed.'); }
+                } else { 
+                    saveBtn.removeClass('loading').prop('disabled', false);
+                    row.find('.cancelBtn').prop('disabled', false);
+                    handleAjaxError({responseJSON: response}, 'Update failed.'); 
+                }
             },
-            error: (jqXHR) => { cancelEditing(); handleAjaxError(jqXHR, 'Server error during update.'); },
+            error: (jqXHR) => { 
+                saveBtn.removeClass('loading').prop('disabled', false);
+                row.find('.cancelBtn').prop('disabled', false);
+                handleAjaxError(jqXHR, 'Server error during update.'); 
+            },
             complete: () => showLoading(false)
         });
     });
