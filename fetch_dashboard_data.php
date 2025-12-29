@@ -74,9 +74,13 @@ try {
 
     // **FIXED**: Use unique named placeholders for the search query to prevent "Invalid parameter number" error.
     if ($isSearchActive) {
-        $searchQuery = '%' . trim($_GET['searchQuery']) . '%';
+        // Escape special LIKE characters (% and _) but preserve the search term otherwise
+        // Note: We don't need to escape ? as it's not a special character in LIKE queries
+        $searchTerm = trim($_GET['searchQuery']);
+        $searchTerm = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $searchTerm);
+        $searchQuery = '%' . $searchTerm . '%';
         // Search by reg_no, client_name, Responsible, and TIN
-        $where_clauses[] = "(reg_no LIKE :searchQuery1 OR client_name LIKE :searchQuery2 OR Responsible LIKE :searchQuery3 OR TIN LIKE :searchQuery4)";
+        $where_clauses[] = "(reg_no LIKE :searchQuery1 ESCAPE '\\' OR client_name LIKE :searchQuery2 ESCAPE '\\' OR Responsible LIKE :searchQuery3 ESCAPE '\\' OR TIN LIKE :searchQuery4 ESCAPE '\\')";
         $params[':searchQuery1'] = $searchQuery;
         $params[':searchQuery2'] = $searchQuery;
         $params[':searchQuery3'] = $searchQuery;
