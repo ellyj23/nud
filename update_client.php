@@ -31,17 +31,34 @@ if (!userHasPermission($_SESSION['user_id'], 'edit-client')) {
 // Get POST data using modern, safe methods
 $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
 
+/**
+ * Helper function to clean and validate numeric input
+ * Handles formatted numbers with commas and multiple decimal points
+ */
+function cleanNumericInput($value) {
+    if ($value === false) {
+        return 0;
+    }
+    // If already a valid number, return it
+    if (is_numeric($value)) {
+        return floatval($value);
+    }
+    // Clean the input - remove everything except digits and decimal points
+    $cleaned = preg_replace('/[^0-9.]/', '', $value);
+    // Handle multiple decimal points by keeping only the first one
+    if (substr_count($cleaned, '.') > 1) {
+        $parts = explode('.', $cleaned);
+        $cleaned = $parts[0] . '.' . implode('', array_slice($parts, 1));
+    }
+    // Validate and return
+    $result = filter_var($cleaned, FILTER_VALIDATE_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+    return ($result === false) ? 0 : $result;
+}
+
 // Validate amount - allow 0 but not false
 $amount = filter_input(INPUT_POST, 'amount', FILTER_VALIDATE_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
 if ($amount === false && isset($_POST['amount'])) {
-    // Try to clean the input and parse again
-    $amountCleaned = preg_replace('/[^0-9.]/', '', $_POST['amount']);
-    // Ensure only one decimal point
-    if (substr_count($amountCleaned, '.') > 1) {
-        $parts = explode('.', $amountCleaned);
-        $amountCleaned = $parts[0] . '.' . implode('', array_slice($parts, 1));
-    }
-    $amount = filter_var($amountCleaned, FILTER_VALIDATE_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+    $amount = cleanNumericInput($_POST['amount']);
 }
 if ($amount === false) {
     $amount = 0;
@@ -50,14 +67,7 @@ if ($amount === false) {
 // Validate paid_amount - allow 0 but not false
 $paid_amount = filter_input(INPUT_POST, 'paid_amount', FILTER_VALIDATE_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
 if ($paid_amount === false && isset($_POST['paid_amount'])) {
-    // Try to clean the input and parse again
-    $paidCleaned = preg_replace('/[^0-9.]/', '', $_POST['paid_amount']);
-    // Ensure only one decimal point
-    if (substr_count($paidCleaned, '.') > 1) {
-        $parts = explode('.', $paidCleaned);
-        $paidCleaned = $parts[0] . '.' . implode('', array_slice($parts, 1));
-    }
-    $paid_amount = filter_var($paidCleaned, FILTER_VALIDATE_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+    $paid_amount = cleanNumericInput($_POST['paid_amount']);
 }
 if ($paid_amount === false) {
     $paid_amount = 0;
