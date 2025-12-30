@@ -211,6 +211,28 @@ require_once 'header.php';
     }
     @keyframes fade-in { to { opacity: 1; } }
     
+    @keyframes slideIn {
+        from {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+    }
+    
     /* Pagination styles */
     .pagination-container {
         display: flex;
@@ -822,8 +844,17 @@ require_once 'header.php';
             if (button.classList.contains('delete-btn')) {
                 const id = button.dataset.id;
                 if (confirm('Are you sure you want to delete this transaction? This action cannot be undone.')) {
-                    const res = await apiCall('POST', API_URL, { action: 'delete', id });
-                    if (res && res.success) fetchTransactions(getFilterState());
+                    try {
+                        const res = await apiCall('POST', API_URL, { action: 'delete', id });
+                        if (res && res.success) {
+                            showSuccessMessage(res.message || 'Transaction deleted successfully!');
+                            fetchTransactions(getFilterState());
+                        } else {
+                            showErrorMessage(res.error || 'Failed to delete transaction');
+                        }
+                    } catch (error) {
+                        showErrorMessage(error.message || 'Failed to delete transaction');
+                    }
                 }
             }
 
@@ -859,11 +890,17 @@ require_once 'header.php';
                 tr.querySelectorAll('input, select, textarea').forEach(input => { data[input.name] = input.value; });
                 
                 button.disabled = true; button.innerHTML = 'Saving...';
-                const response = await apiCall('POST', API_URL, data);
-                if (response && response.success) {
-                    fetchTransactions(getFilterState());
-                } else {
-                    alert('Failed to update transaction.');
+                try {
+                    const response = await apiCall('POST', API_URL, data);
+                    if (response && response.success) {
+                        showSuccessMessage(response.message || 'Transaction updated successfully!');
+                        fetchTransactions(getFilterState());
+                    } else {
+                        showErrorMessage(response.error || 'Failed to update transaction');
+                        cancelEditing();
+                    }
+                } catch (error) {
+                    showErrorMessage(error.message || 'Failed to update transaction');
                     cancelEditing();
                 }
             }
@@ -873,19 +910,27 @@ require_once 'header.php';
             e.preventDefault();
             const formData = new FormData(elements.pcForm);
             const data = Object.fromEntries(formData.entries());
-            data.action = data.id ? 'update' : 'create';
+            const isUpdate = !!data.id;
+            data.action = isUpdate ? 'update' : 'create';
 
             const submitBtn = elements.pcForm.querySelector('button[type="submit"]');
             submitBtn.disabled = true; submitBtn.innerHTML = 'Saving...';
             
-            const response = await apiCall('POST', API_URL, data);
-            if (response && response.success) {
-                fetchTransactions(getFilterState());
-                resetAndHideForm();
-            } else {
-                alert(response.error || 'Failed to save transaction');
+            try {
+                const response = await apiCall('POST', API_URL, data);
+                if (response && response.success) {
+                    showSuccessMessage(response.message || (isUpdate ? 'Transaction updated successfully!' : 'Transaction created successfully!'));
+                    fetchTransactions(getFilterState());
+                    resetAndHideForm();
+                } else {
+                    showErrorMessage(response.error || 'Failed to save transaction');
+                }
+            } catch (error) {
+                showErrorMessage(error.message || 'Failed to save transaction');
+            } finally {
+                submitBtn.disabled = false; 
+                submitBtn.innerHTML = `<svg class="icon"><use href="#icon-check"/></svg>Save`;
             }
-            submitBtn.disabled = false; submitBtn.innerHTML = `<svg class="icon"><use href="#icon-check"/></svg>Save`;
         });
 
         const resetAndHideForm = () => { 
@@ -1056,6 +1101,42 @@ require_once 'header.php';
         // --- Helper Functions ---
         const escapeHtml = (str) => String(str || '').replace(/[&<>"']/g, m => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'})[m]);
         const destroyCharts = () => { Object.values(charts).forEach(chart => chart && chart.destroy()); };
+        
+        // Toast notification functions
+        const showSuccessMessage = (message) => {
+            showToast(message, 'success');
+        };
+        
+        const showErrorMessage = (message) => {
+            showToast(message, 'error');
+        };
+        
+        const showToast = (message, type = 'success') => {
+            // Remove any existing toast
+            const existingToast = document.querySelector('.toast-notification');
+            if (existingToast) existingToast.remove();
+            
+            // Create new toast
+            const toast = document.createElement('div');
+            toast.className = `toast-notification toast-${type}`;
+            toast.textContent = message;
+            toast.style.cssText = `
+                position: fixed; top: 20px; right: 20px; z-index: 10000;
+                padding: 16px 24px; border-radius: var(--radius-md);
+                background: ${type === 'success' ? 'var(--success)' : 'var(--danger)'};
+                color: white; font-weight: 600; font-size: 14px;
+                box-shadow: var(--shadow-lg);
+                animation: slideIn 0.3s ease-out;
+            `;
+            
+            document.body.appendChild(toast);
+            
+            // Auto-remove after 3 seconds
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        };
         
         // Initial data load
         // Restore entries per page from sessionStorage if available

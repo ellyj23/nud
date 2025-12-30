@@ -96,13 +96,18 @@ try {
         $params[':searchQuery5'] = $searchQuery;
     }
     
-    // Filter out entries containing "?" character from frontend display
-    // This hides entries with ? from the table but they still count in dashboard statistics
-    $where_clauses[] = "client_name NOT LIKE '%?%'";
-    $where_clauses[] = "COALESCE(reg_no, '') NOT LIKE '%?%'";
-    $where_clauses[] = "COALESCE(Responsible, '') NOT LIKE '%?%'";
-    $where_clauses[] = "COALESCE(service, '') NOT LIKE '%?%'";
-    $where_clauses[] = "COALESCE(TIN, '') NOT LIKE '%?%'";
+    // Filter out entries containing 3 or more consecutive special characters from frontend display
+    // This hides entries with 3+ consecutive special characters from the table but they still count in dashboard statistics
+    // Updated logic: Only hide if ANY cell contains 3+ consecutive special characters
+    // Pattern explanation: Matches 3 or more consecutive characters from the set [@#$%^&*!~`+=\[\]{}|\\<>?]
+    $specialCharPattern = '[@#$%^&*!~`+=\\[\\]{}|\\\\<>?]{3,}';
+    $where_clauses[] = "(
+        client_name NOT REGEXP '$specialCharPattern' AND
+        COALESCE(reg_no, '') NOT REGEXP '$specialCharPattern' AND
+        COALESCE(Responsible, '') NOT REGEXP '$specialCharPattern' AND
+        COALESCE(service, '') NOT REGEXP '$specialCharPattern' AND
+        COALESCE(TIN, '') NOT REGEXP '$specialCharPattern'
+    )";
     
     // 24-hour delay filter for JOSEPH records during search/filter
     // Hide JOSEPH records created less than 24 hours ago when searching or filtering
