@@ -904,8 +904,30 @@ require_once 'header.php';
             if (button.classList.contains('save-btn')) {
                 const tr = button.closest('tr');
                 const id = tr.dataset.id;
+                
+                // Validate that we have a valid transaction ID
+                if (!id || isNaN(id) || id <= 0) {
+                    showErrorMessage('Invalid transaction ID. Please refresh the page and try again.');
+                    return;
+                }
+                
                 const data = { id, action: 'update' };
-                tr.querySelectorAll('input, select').forEach(input => { data[input.name] = input.value; });
+                tr.querySelectorAll('input, select').forEach(input => { 
+                    // Only include fields that have a name attribute and a value
+                    if (input.name) {
+                        data[input.name] = input.value || '';
+                    }
+                });
+                
+                // Validate required fields
+                if (!data.payment_date) {
+                    showErrorMessage('Payment date is required.');
+                    return;
+                }
+                if (!data.amount || isNaN(data.amount) || parseFloat(data.amount) < 0) {
+                    showErrorMessage('Valid amount is required.');
+                    return;
+                }
                 
                 // Debug: Log the data being sent
                 console.log('Update transaction data:', data);
