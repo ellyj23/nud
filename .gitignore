@@ -24,3 +24,4 @@ table-ux-demo.html
 Thumbs.db
 vendor/
 composer.lock
+test_special_char_filtering.php
