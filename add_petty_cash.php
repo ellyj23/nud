@@ -11,27 +11,29 @@ if (session_status() === PHP_SESSION_NONE) {
 header('Content-Type: application/json');
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    http_response_code(401);
-    echo json_encode(['success' => false, 'error' => 'Authentication required.']);
-    exit;
+    send_json_response(['success' => false, 'error' => 'Authentication required.'], 401);
 }
 
 require_once 'db.php';
+
+// --- HELPER FUNCTION ---
+function send_json_response($data, $statusCode = 200) {
+    http_response_code($statusCode);
+    echo json_encode($data);
+    exit;
+}
 
 // Check if database connection was successful
 if ($pdo === null) {
     // Database connection failed, return the error from db.php
     if (isset($db_connection_error)) {
-        http_response_code(500);
-        echo json_encode($db_connection_error);
+        send_json_response($db_connection_error, 500);
     } else {
-        http_response_code(500);
-        echo json_encode([
+        send_json_response([
             'success' => false,
             'error' => 'Database connection is not available'
-        ]);
+        ], 500);
     }
-    exit;
 }
 
 // Get JSON input
@@ -39,15 +41,14 @@ $data = json_decode(file_get_contents('php://input'), true);
 
 // Check if JSON decoding failed
 if (json_last_error() !== JSON_ERROR_NONE) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'Invalid JSON data: ' . json_last_error_msg()]);
-    exit;
+    send_json_response([
+        'success' => false,
+        'error' => 'Invalid JSON data: ' . json_last_error_msg()
+    ], 400);
 }
 
 if (empty($data['action'])) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'Action is required.']);
-    exit;
+    send_json_response(['success' => false, 'error' => 'Action is required.'], 400);
 }
 
 try {
@@ -55,23 +56,17 @@ try {
         case 'create':
             // Validate required fields
             if (empty($data['transaction_date']) || empty($data['description']) || !isset($data['amount']) || empty($data['transaction_type'])) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Missing required fields.']);
-                exit;
+                send_json_response(['success' => false, 'error' => 'Missing required fields.'], 400);
             }
             
             // Validate amount is numeric and positive
             if (!is_numeric($data['amount']) || floatval($data['amount']) <= 0) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Amount must be a positive number.']);
-                exit;
+                send_json_response(['success' => false, 'error' => 'Amount must be a positive number.'], 400);
             }
             
             // Validate transaction_type
             if (!in_array($data['transaction_type'], ['credit', 'debit'])) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Invalid transaction type. Must be credit or debit.']);
-                exit;
+                send_json_response(['success' => false, 'error' => 'Invalid transaction type. Must be credit or debit.'], 400);
             }
             
             // Check if approval is required based on settings
@@ -120,7 +115,7 @@ try {
                 logActivity($_SESSION['user_id'], 'create-petty-cash', 'petty_cash', $newId, 
                            json_encode(['amount' => $data['amount'], 'type' => $data['transaction_type']]));
             }
-            echo json_encode([
+            send_json_response([
                 'success' => true,
                 'message' => 'Transaction created successfully.' . ($requiresApproval ? ' Pending approval.' : ''),
                 'id' => $newId,
@@ -132,9 +127,7 @@ try {
         case 'update':
             // Validate required fields
             if (empty($data['id'])) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Transaction ID is required.']);
-                exit;
+                send_json_response(['success' => false, 'error' => 'Transaction ID is required.'], 400);
             }
             
             // Validate amount if provided
