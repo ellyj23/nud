@@ -448,6 +448,18 @@ require_once 'header.php';
         let totalRecords = 0;
         let perPage = 20;
         const API_URL = 'api_transactions.php';
+        
+        // Utility function to safely escape HTML attribute values
+        const escapeAttr = (str) => {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\\/g, '&#92;');
+        };
 
         const elements = {
             txTableBody: document.getElementById('txTableBody'),
@@ -875,36 +887,42 @@ require_once 'header.php';
                 tr.dataset.originalHtml = tr.innerHTML;
                 tr.classList.add('editing-row');
 
-                // Helper function to safely escape HTML attribute values
-                const escapeAttr = (str) => {
-                    if (str === null || str === undefined) return '';
-                    return String(str)
-                        .replace(/&/g, '&amp;')
-                        .replace(/"/g, '&quot;')
-                        .replace(/'/g, '&#39;')
-                        .replace(/</g, '&lt;')
-                        .replace(/>/g, '&gt;')
-                        .replace(/\\/g, '&#92;');
-                };
+                // Create select options with proper selected state
+                const typeOptions = ['expense', 'payment'].map(t => 
+                    `<option value="${t}" ${tx.type === t ? 'selected' : ''}>${t.charAt(0).toUpperCase() + t.slice(1)}</option>`
+                ).join('');
+                
+                const paymentMethodOptions = ['MTN', 'BANK', 'CASH', 'OTHER'].map(pm => 
+                    `<option ${tx.payment_method === pm ? 'selected' : ''}>${pm}</option>`
+                ).join('');
+                
+                const statusOptions = ['Initiated', 'Processed', 'Completed'].map(s => 
+                    `<option ${tx.status === s ? 'selected' : ''}>${s}</option>`
+                ).join('');
+                
+                const currencyOptions = ['RWF', 'USD', 'EUR'].map(c => 
+                    `<option ${tx.currency === c ? 'selected' : ''}>${c}</option>`
+                ).join('');
+                
+                const refundableOptions = [
+                    `<option value="0" ${tx.refundable == '0' ? 'selected' : ''}>No</option>`,
+                    `<option value="1" ${tx.refundable == '1' ? 'selected' : ''}>Yes</option>`
+                ].join('');
+                
+                const refundableSelectHtml = tx.type === 'expense' 
+                    ? `<select name="refundable">${refundableOptions}</select>` 
+                    : '—';
 
-                const refundableSelectHtml = tx.type === 'expense' ? `<select name="refundable"><option value="0">No</option><option value="1">Yes</option></select>` : '—';
                 tr.cells[1].innerHTML = `<input type="date" name="payment_date" value="${escapeAttr(tx.payment_date)}">`;
-                tr.cells[2].innerHTML = `<select name="type"><option value="expense">Expense</option><option value="payment">Payment</option></select>`;
+                tr.cells[2].innerHTML = `<select name="type">${typeOptions}</select>`;
                 tr.cells[3].innerHTML = `<input type="text" name="reference" value="${escapeAttr(tx.reference)}">`;
-                tr.cells[4].innerHTML = `<select name="payment_method"><option>MTN</option><option>BANK</option><option>CASH</option><option>OTHER</option></select>`;
+                tr.cells[4].innerHTML = `<select name="payment_method">${paymentMethodOptions}</select>`;
                 tr.cells[5].innerHTML = `<input type="text" name="note" value="${escapeAttr(tx.note)}">`;
-                tr.cells[6].innerHTML = `<input type="number" step="0.01" name="amount" value="${escapeAttr(tx.amount)}" style="width: 70px; margin-right: 5px;"><select name="currency" style="width: 60px;"><option>RWF</option><option>USD</option><option>EUR</option></select>`;
-                tr.cells[7].innerHTML = `<select name="status"><option>Initiated</option><option>Processed</option><option>Completed</option></select>`;
+                tr.cells[6].innerHTML = `<input type="number" step="0.01" name="amount" value="${escapeAttr(tx.amount)}" style="width: 70px; margin-right: 5px;"><select name="currency" style="width: 60px;">${currencyOptions}</select>`;
+                tr.cells[7].innerHTML = `<select name="status">${statusOptions}</select>`;
                 tr.cells[8].innerHTML = refundableSelectHtml;
                 tr.cells[9].innerHTML = `<div class="tx-actions"><button class="btn success btn-sm save-btn"><svg class="icon"><use href="#icon-check"/></svg>Save</button><button class="btn secondary btn-sm cancel-edit-btn"><svg class="icon"><use href="#icon-x"/></svg>Cancel</button></div>`;
 
-                tr.querySelector('[name="type"]').value = tx.type;
-                tr.querySelector('[name="payment_method"]').value = tx.payment_method;
-                tr.querySelector('[name="currency"]').value = tx.currency;
-                tr.querySelector('[name="status"]').value = tx.status;
-                if(tx.type === 'expense') {
-                    tr.querySelector('[name="refundable"]').value = tx.refundable;
-                }
                 Array.from(tr.cells).slice(1, 9).forEach(cell => cell.classList.add('inline-edit-cell'));
             }
 
