@@ -438,6 +438,9 @@ require_once 'header.php';
 
     // --- Main Application Logic ---
     document.addEventListener('DOMContentLoaded', () => {
+        // Debug mode - set to false in production
+        const DEBUG_MODE = false;
+        
         let allTransactions = [];
         let charts = {};
         let currentPage = 1;
@@ -875,7 +878,13 @@ require_once 'header.php';
                 // Helper function to safely escape HTML attribute values
                 const escapeAttr = (str) => {
                     if (str === null || str === undefined) return '';
-                    return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    return String(str)
+                        .replace(/&/g, '&amp;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#39;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/\\/g, '&#92;');
                 };
 
                 const refundableSelectHtml = tx.type === 'expense' ? `<select name="refundable"><option value="0">No</option><option value="1">Yes</option></select>` : '—';
@@ -929,23 +938,31 @@ require_once 'header.php';
                     return;
                 }
                 
-                // Debug: Log the data being sent
-                console.log('Update transaction data:', data);
+                // Debug logging (only when DEBUG_MODE is true)
+                if (DEBUG_MODE) {
+                    console.log('Update transaction data:', data);
+                }
                 
                 button.disabled = true; button.innerHTML = 'Saving...';
                 try {
                     const response = await apiCall('POST', data);
-                    console.log('Update response:', response);
+                    if (DEBUG_MODE) {
+                        console.log('Update response:', response);
+                    }
                     if (response && response.success) {
                         showSuccessMessage(response.message || 'Transaction updated successfully!');
                         fetchTransactions(getFilterState());
                     } else {
-                        console.error('Update failed with response:', response);
+                        if (DEBUG_MODE) {
+                            console.error('Update failed with response:', response);
+                        }
                         showErrorMessage(response.error || 'Failed to update transaction');
                         cancelEditing();
                     }
                 } catch (error) {
-                    console.error('Update error:', error);
+                    if (DEBUG_MODE) {
+                        console.error('Update error:', error);
+                    }
                     showErrorMessage(error.message || 'Failed to update transaction');
                     cancelEditing();
                 }

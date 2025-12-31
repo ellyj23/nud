@@ -520,6 +520,11 @@ function update_transaction($pdo, $data) {
         send_json_response(['success' => false, 'error' => 'Valid amount is required.'], 400);
     }
     
+    // Validate amount is not negative
+    if (floatval($data['amount']) < 0) {
+        send_json_response(['success' => false, 'error' => 'Amount cannot be negative.'], 400);
+    }
+    
     // Note: We attempt the update first without checking existence. This is optimal for the happy path
     // (transaction exists and is updated) as it requires only one query. We only check existence if
     // rowCount is 0, which handles the rare error case with a second query.
