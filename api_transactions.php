@@ -503,19 +503,46 @@ function create_transaction($pdo, $data) {
 
 function update_transaction($pdo, $data) {
     if (empty($data['id'])) send_json_response(['success' => false, 'error' => 'ID is required.'], 400);
+    
+    // Validate that the transaction exists
+    $checkStmt = $pdo->prepare("SELECT id FROM wp_ea_transactions WHERE id = :id");
+    $checkStmt->execute([':id' => $data['id']]);
+    if (!$checkStmt->fetchColumn()) {
+        send_json_response(['success' => false, 'error' => 'Transaction not found.'], 404);
+    }
+    
     $sql = "UPDATE wp_ea_transactions SET payment_date = :payment_date, type = :type, amount = :amount, currency = :currency, reference = :reference, note = :note, status = :status, payment_method = :payment_method, refundable = :refundable WHERE id = :id";
     $stmt = $pdo->prepare($sql);
     $type = $data['type'] ?? 'expense';
     // **FIXED**: Correctly default refundable to 0 if not provided or if type is not 'expense'
     $refundable = ($type === 'expense' && !empty($data['refundable'])) ? 1 : 0;
 
-    $stmt->execute([
-        ':id' => $data['id'], ':payment_date' => $data['payment_date'] ?? date('Y-m-d H:i:s'), ':type' => $type,
-        ':amount' => $data['amount'] ?? 0.0, ':currency' => $data['currency'] ?? 'RWF', ':reference' => $data['reference'] ?? null,
-        ':note' => $data['note'] ?? null, ':status' => $data['status'] ?? 'Initiated', ':payment_method' => $data['payment_method'] ?? 'OTHER',
-        ':refundable' => $refundable
-    ]);
-    send_json_response(['success' => true, 'message' => 'Transaction updated successfully!']);
+    try {
+        $result = $stmt->execute([
+            ':id' => $data['id'], 
+            ':payment_date' => $data['payment_date'] ?? date('Y-m-d H:i:s'), 
+            ':type' => $type,
+            ':amount' => $data['amount'] ?? 0.0, 
+            ':currency' => $data['currency'] ?? 'RWF', 
+            ':reference' => $data['reference'] ?? null,
+            ':note' => $data['note'] ?? null, 
+            ':status' => $data['status'] ?? 'Initiated', 
+            ':payment_method' => $data['payment_method'] ?? 'OTHER',
+            ':refundable' => $refundable
+        ]);
+        
+        if ($result && $stmt->rowCount() > 0) {
+            send_json_response(['success' => true, 'message' => 'Transaction updated successfully!']);
+        } else {
+            send_json_response(['success' => false, 'error' => 'No changes were made or transaction not found.'], 400);
+        }
+    } catch (PDOException $e) {
+        send_json_response([
+            'success' => false, 
+            'error' => 'Failed to update transaction',
+            'details' => $e->getMessage()
+        ], 500);
+    }
 }
 
 function bulk_update_transactions($pdo, $data) {
