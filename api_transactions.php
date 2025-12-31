@@ -282,6 +282,11 @@ function validate_database_connection($pdo) {
     }
 }
 
+function empty_string_to_null($value) {
+    // Convert empty strings to NULL, preserve all other values including '0'
+    return (isset($value) && $value !== '') ? $value : null;
+}
+
 function get_next_transaction_number($pdo, $type) {
     // (This function is correct and unchanged)
     $prefix = (strtoupper($type) === 'EXPENSE') ? 'EXP-' : 'PAY-';
@@ -493,9 +498,15 @@ function create_transaction($pdo, $data) {
     $refundable = ($type === 'expense' && !empty($data['refundable'])) ? 1 : 0;
     
     $stmt->execute([
-        ':payment_date' => $data['payment_date'] ?? date('Y-m-d H:i:s'), ':type' => $type, ':number' => $number,
-        ':amount' => $data['amount'] ?? 0.0, ':currency' => $data['currency'] ?? 'RWF', ':reference' => $data['reference'] ?? null,
-        ':note' => $data['note'] ?? null, ':status' => $data['status'] ?? 'Initiated', ':payment_method' => $data['payment_method'] ?? 'OTHER',
+        ':payment_date' => $data['payment_date'] ?? date('Y-m-d H:i:s'), 
+        ':type' => $type, 
+        ':number' => $number,
+        ':amount' => $data['amount'] ?? 0.0, 
+        ':currency' => $data['currency'] ?? 'RWF', 
+        ':reference' => empty_string_to_null($data['reference'] ?? ''),
+        ':note' => empty_string_to_null($data['note'] ?? ''), 
+        ':status' => $data['status'] ?? 'Initiated', 
+        ':payment_method' => $data['payment_method'] ?? 'OTHER',
         ':refundable' => $refundable
     ]);
     send_json_response(['success' => true, 'message' => 'Transaction created successfully!']);
@@ -549,8 +560,8 @@ function update_transaction($pdo, $data) {
             ':type' => $type,
             ':amount' => floatval($data['amount']), 
             ':currency' => $data['currency'] ?? 'RWF', 
-            ':reference' => (isset($data['reference']) && $data['reference'] !== '') ? $data['reference'] : null,
-            ':note' => (isset($data['note']) && $data['note'] !== '') ? $data['note'] : null, 
+            ':reference' => empty_string_to_null($data['reference'] ?? ''),
+            ':note' => empty_string_to_null($data['note'] ?? ''), 
             ':status' => $data['status'] ?? 'Initiated', 
             ':payment_method' => $data['payment_method'] ?? 'OTHER',
             ':refundable' => $refundable

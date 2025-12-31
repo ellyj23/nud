@@ -907,8 +907,8 @@ require_once 'header.php';
                 ).join('');
                 
                 const refundableOptions = [
-                    `<option value="0" ${String(tx.refundable) === '0' ? 'selected' : ''}>No</option>`,
-                    `<option value="1" ${String(tx.refundable) === '1' ? 'selected' : ''}>Yes</option>`
+                    `<option value="0" ${Number(tx.refundable) === 0 ? 'selected' : ''}>No</option>`,
+                    `<option value="1" ${Number(tx.refundable) === 1 ? 'selected' : ''}>Yes</option>`
                 ].join('');
                 
                 const refundableSelectHtml = tx.type === 'expense' 
@@ -953,7 +953,7 @@ require_once 'header.php';
                     showErrorMessage('Payment date is required.');
                     return;
                 }
-                if (!data.amount || isNaN(data.amount) || parseFloat(data.amount) < 0) {
+                if (!data.amount || data.amount === '' || isNaN(data.amount) || parseFloat(data.amount) < 0) {
                     showErrorMessage('Valid amount is required.');
                     return;
                 }
