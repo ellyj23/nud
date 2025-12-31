@@ -284,7 +284,20 @@ function validate_database_connection($pdo) {
 
 function empty_string_to_null($value) {
     // Convert empty strings to NULL, preserve all other values including '0'
+    // Returns NULL if $value is null, undefined, or empty string
+    // Returns the original value otherwise (including string '0')
     return (isset($value) && $value !== '') ? $value : null;
+}
+
+function format_payment_date($date_string) {
+    // Ensures date is in DATETIME format for database compatibility
+    // If date is in YYYY-MM-DD format only, appends midnight time (00:00:00)
+    // Otherwise returns the date string as-is
+    $date = $date_string ?? date('Y-m-d H:i:s');
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+        return $date . ' 00:00:00';
+    }
+    return $date;
 }
 
 function get_next_transaction_number($pdo, $type) {
@@ -498,7 +511,7 @@ function create_transaction($pdo, $data) {
     $refundable = ($type === 'expense' && !empty($data['refundable'])) ? 1 : 0;
     
     $stmt->execute([
-        ':payment_date' => $data['payment_date'] ?? date('Y-m-d H:i:s'), 
+        ':payment_date' => format_payment_date($data['payment_date'] ?? null), 
         ':type' => $type, 
         ':number' => $number,
         ':amount' => $data['amount'] ?? 0.0, 
@@ -547,12 +560,7 @@ function update_transaction($pdo, $data) {
 
     try {
         // Prepare values with proper defaults and type coercion
-        $payment_date = $data['payment_date'] ?? date('Y-m-d H:i:s');
-        // If payment_date is just a date (YYYY-MM-DD), append midnight time for DATETIME column
-        // Note: This sets time to 00:00:00 (midnight) by default for date-only inputs
-        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $payment_date)) {
-            $payment_date .= ' 00:00:00';
-        }
+        $payment_date = format_payment_date($data['payment_date'] ?? null);
         
         $result = $stmt->execute([
             ':id' => intval($data['id']), 
