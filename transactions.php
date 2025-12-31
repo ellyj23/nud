@@ -458,7 +458,9 @@ require_once 'header.php';
                 .replace(/'/g, '&#39;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
-                .replace(/\\/g, '&#92;');
+                .replace(/\\/g, '&#92;')
+                .replace(/\n/g, '&#10;')
+                .replace(/\r/g, '&#13;');
         };
 
         const elements = {
@@ -905,8 +907,8 @@ require_once 'header.php';
                 ).join('');
                 
                 const refundableOptions = [
-                    `<option value="0" ${tx.refundable == '0' ? 'selected' : ''}>No</option>`,
-                    `<option value="1" ${tx.refundable == '1' ? 'selected' : ''}>Yes</option>`
+                    `<option value="0" ${String(tx.refundable) === '0' ? 'selected' : ''}>No</option>`,
+                    `<option value="1" ${String(tx.refundable) === '1' ? 'selected' : ''}>Yes</option>`
                 ].join('');
                 
                 const refundableSelectHtml = tx.type === 'expense' 

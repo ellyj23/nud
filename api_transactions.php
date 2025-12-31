@@ -537,7 +537,8 @@ function update_transaction($pdo, $data) {
     try {
         // Prepare values with proper defaults and type coercion
         $payment_date = $data['payment_date'] ?? date('Y-m-d H:i:s');
-        // If payment_date is just a date (YYYY-MM-DD), append time for DATETIME column
+        // If payment_date is just a date (YYYY-MM-DD), append midnight time for DATETIME column
+        // Note: This sets time to 00:00:00 (midnight) by default for date-only inputs
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $payment_date)) {
             $payment_date .= ' 00:00:00';
         }
@@ -548,8 +549,8 @@ function update_transaction($pdo, $data) {
             ':type' => $type,
             ':amount' => floatval($data['amount']), 
             ':currency' => $data['currency'] ?? 'RWF', 
-            ':reference' => !empty($data['reference']) ? $data['reference'] : null,
-            ':note' => !empty($data['note']) ? $data['note'] : null, 
+            ':reference' => (isset($data['reference']) && $data['reference'] !== '') ? $data['reference'] : null,
+            ':note' => (isset($data['note']) && $data['note'] !== '') ? $data['note'] : null, 
             ':status' => $data['status'] ?? 'Initiated', 
             ':payment_method' => $data['payment_method'] ?? 'OTHER',
             ':refundable' => $refundable
