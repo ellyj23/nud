@@ -282,6 +282,24 @@ function validate_database_connection($pdo) {
     }
 }
 
+function empty_string_to_null($value) {
+    // Convert empty strings to NULL, preserve all other values including '0'
+    // Returns NULL if $value is null, undefined, or empty string
+    // Returns the original value otherwise (including string '0')
+    return (isset($value) && $value !== '') ? $value : null;
+}
+
+function format_payment_date($date_string) {
+    // Ensures date is in DATETIME format for database compatibility
+    // If date is in YYYY-MM-DD format only, appends midnight time (00:00:00)
+    // Otherwise returns the date string as-is
+    $date = $date_string ?? date('Y-m-d H:i:s');
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+        return $date . ' 00:00:00';
+    }
+    return $date;
+}
+
 function get_next_transaction_number($pdo, $type) {
     // (This function is correct and unchanged)
     $prefix = (strtoupper($type) === 'EXPENSE') ? 'EXP-' : 'PAY-';
@@ -493,16 +511,43 @@ function create_transaction($pdo, $data) {
     $refundable = ($type === 'expense' && !empty($data['refundable'])) ? 1 : 0;
     
     $stmt->execute([
-        ':payment_date' => $data['payment_date'] ?? date('Y-m-d H:i:s'), ':type' => $type, ':number' => $number,
-        ':amount' => $data['amount'] ?? 0.0, ':currency' => $data['currency'] ?? 'RWF', ':reference' => $data['reference'] ?? null,
-        ':note' => $data['note'] ?? null, ':status' => $data['status'] ?? 'Initiated', ':payment_method' => $data['payment_method'] ?? 'OTHER',
+        ':payment_date' => format_payment_date($data['payment_date'] ?? null), 
+        ':type' => $type, 
+        ':number' => $number,
+        ':amount' => $data['amount'] ?? 0.0, 
+        ':currency' => $data['currency'] ?? 'RWF', 
+        ':reference' => empty_string_to_null($data['reference'] ?? ''),
+        ':note' => empty_string_to_null($data['note'] ?? ''), 
+        ':status' => $data['status'] ?? 'Initiated', 
+        ':payment_method' => $data['payment_method'] ?? 'OTHER',
         ':refundable' => $refundable
     ]);
     send_json_response(['success' => true, 'message' => 'Transaction created successfully!']);
 }
 
 function update_transaction($pdo, $data) {
-    if (empty($data['id'])) send_json_response(['success' => false, 'error' => 'ID is required.'], 400);
+    if (empty($data['id'])) {
+        send_json_response(['success' => false, 'error' => 'Transaction ID is required.'], 400);
+    }
+    
+    // Validate ID is numeric
+    if (!is_numeric($data['id']) || intval($data['id']) <= 0) {
+        send_json_response(['success' => false, 'error' => 'Invalid transaction ID format.'], 400);
+    }
+    
+    // Validate required fields
+    if (empty($data['payment_date'])) {
+        send_json_response(['success' => false, 'error' => 'Payment date is required.'], 400);
+    }
+    
+    if (!isset($data['amount']) || $data['amount'] === '' || !is_numeric($data['amount'])) {
+        send_json_response(['success' => false, 'error' => 'Please enter a valid numeric amount.'], 400);
+    }
+    
+    // Validate amount is not negative
+    if (floatval($data['amount']) < 0) {
+        send_json_response(['success' => false, 'error' => 'Amount cannot be negative.'], 400);
+    }
     
     // Note: We attempt the update first without checking existence. This is optimal for the happy path
     // (transaction exists and is updated) as it requires only one query. We only check existence if
@@ -514,14 +559,17 @@ function update_transaction($pdo, $data) {
     $refundable = ($type === 'expense' && !empty($data['refundable'])) ? 1 : 0;
 
     try {
+        // Prepare values with proper defaults and type coercion
+        $payment_date = format_payment_date($data['payment_date'] ?? null);
+        
         $result = $stmt->execute([
-            ':id' => $data['id'], 
-            ':payment_date' => $data['payment_date'] ?? date('Y-m-d H:i:s'), 
+            ':id' => intval($data['id']), 
+            ':payment_date' => $payment_date, 
             ':type' => $type,
-            ':amount' => $data['amount'] ?? 0.0, 
+            ':amount' => floatval($data['amount']), 
             ':currency' => $data['currency'] ?? 'RWF', 
-            ':reference' => $data['reference'] ?? null,
-            ':note' => $data['note'] ?? null, 
+            ':reference' => empty_string_to_null($data['reference'] ?? ''),
+            ':note' => empty_string_to_null($data['note'] ?? ''), 
             ':status' => $data['status'] ?? 'Initiated', 
             ':payment_method' => $data['payment_method'] ?? 'OTHER',
             ':refundable' => $refundable
@@ -536,7 +584,7 @@ function update_transaction($pdo, $data) {
             // No rows were updated - either transaction doesn't exist or no changes were made
             // Check if transaction exists (only done in error case for optimal performance)
             $checkStmt = $pdo->prepare("SELECT id FROM wp_ea_transactions WHERE id = :id");
-            $checkStmt->execute([':id' => $data['id']]);
+            $checkStmt->execute([':id' => intval($data['id'])]);
             if (!$checkStmt->fetchColumn()) {
                 send_json_response(['success' => false, 'error' => 'Transaction not found.'], 404);
             } else {
