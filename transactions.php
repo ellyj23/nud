@@ -942,19 +942,19 @@ require_once 'header.php';
                 
                 const data = { id, action: 'update' };
                 tr.querySelectorAll('input, select').forEach(input => { 
-                    // Only include fields that have a name attribute and a value
+                    // Only include fields that have a name attribute
                     if (input.name) {
-                        data[input.name] = input.value || '';
+                        data[input.name] = input.value;
                     }
                 });
                 
                 // Validate required fields
-                if (!data.payment_date) {
+                if (!data.payment_date || data.payment_date === '') {
                     showErrorMessage('Payment date is required.');
                     return;
                 }
-                if (!data.amount || data.amount === '' || isNaN(data.amount) || parseFloat(data.amount) < 0) {
-                    showErrorMessage('Valid amount is required.');
+                if (data.amount === '' || data.amount === undefined || data.amount === null || isNaN(data.amount) || parseFloat(data.amount) < 0) {
+                    showErrorMessage('Please enter a valid non-negative amount.');
                     return;
                 }
                 

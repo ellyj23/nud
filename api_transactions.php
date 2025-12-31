@@ -527,8 +527,8 @@ function update_transaction($pdo, $data) {
         send_json_response(['success' => false, 'error' => 'Payment date is required.'], 400);
     }
     
-    if (!isset($data['amount']) || !is_numeric($data['amount'])) {
-        send_json_response(['success' => false, 'error' => 'Valid amount is required.'], 400);
+    if (!isset($data['amount']) || $data['amount'] === '' || !is_numeric($data['amount'])) {
+        send_json_response(['success' => false, 'error' => 'Please enter a valid numeric amount.'], 400);
     }
     
     // Validate amount is not negative
