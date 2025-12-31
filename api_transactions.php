@@ -298,6 +298,13 @@ $method = $_SERVER['REQUEST_METHOD'];
 $data = [];
 if ($method === 'POST') {
     $data = json_decode(file_get_contents('php://input'), true);
+    // Check if JSON decoding failed
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        send_json_response([
+            'success' => false,
+            'error' => 'Invalid JSON data: ' . json_last_error_msg()
+        ], 400);
+    }
 }
 $action = $data['action'] ?? $_GET['action'] ?? null;
 

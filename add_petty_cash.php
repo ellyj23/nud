@@ -18,8 +18,31 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
 
 require_once 'db.php';
 
+// Check if database connection was successful
+if ($pdo === null) {
+    // Database connection failed, return the error from db.php
+    if (isset($db_connection_error)) {
+        http_response_code(500);
+        echo json_encode($db_connection_error);
+    } else {
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'error' => 'Database connection is not available'
+        ]);
+    }
+    exit;
+}
+
 // Get JSON input
 $data = json_decode(file_get_contents('php://input'), true);
+
+// Check if JSON decoding failed
+if (json_last_error() !== JSON_ERROR_NONE) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'error' => 'Invalid JSON data: ' . json_last_error_msg()]);
+    exit;
+}
 
 if (empty($data['action'])) {
     http_response_code(400);
