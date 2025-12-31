@@ -540,7 +540,11 @@ function bulk_update_transactions($pdo, $data) {
     $sql = "UPDATE wp_ea_transactions SET " . implode(', ', $set_clauses) . " WHERE id IN ($ids_placeholder)";
     $stmt = $pdo->prepare($sql);
     $stmt->execute(array_merge(array_values($params), $data['ids']));
-    send_json_response(['success' => true, 'message' => $stmt->rowCount() . ' transaction(s) updated successfully!']);
+    
+    // Proper pluralization for success message
+    $count = $stmt->rowCount();
+    $message = $count === 1 ? '1 transaction updated successfully!' : $count . ' transactions updated successfully!';
+    send_json_response(['success' => true, 'message' => $message]);
 }
 
 function delete_transaction($pdo, $data) {

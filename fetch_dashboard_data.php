@@ -100,7 +100,7 @@ try {
     // This hides entries with 3+ consecutive special characters from the table but they still count in dashboard statistics
     // Updated logic: Only hide if ANY cell contains 3+ consecutive special characters
     // Pattern explanation: Matches 3 or more consecutive characters from the set [@#$%^&*!~`+=\[\]{}|\\<>?]
-    // Note: We use BINARY to make the search case-sensitive
+    // Note: BINARY keyword ensures exact byte-by-byte comparison (MySQL default collation-independent matching)
     $specialCharPattern = '[@#$%^&*!~`+=\\[\\]{}|\\\\<>?]{3,}';
     $where_clauses[] = "(
         BINARY client_name NOT REGEXP '$specialCharPattern' AND
