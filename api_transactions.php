@@ -491,7 +491,7 @@ function create_transaction($pdo, $data) {
         ':note' => $data['note'] ?? null, ':status' => $data['status'] ?? 'Initiated', ':payment_method' => $data['payment_method'] ?? 'OTHER',
         ':refundable' => $refundable
     ]);
-    send_json_response(['success' => true, 'message' => 'Transaction created.']);
+    send_json_response(['success' => true, 'message' => 'Transaction created successfully!']);
 }
 
 function update_transaction($pdo, $data) {
@@ -508,7 +508,7 @@ function update_transaction($pdo, $data) {
         ':note' => $data['note'] ?? null, ':status' => $data['status'] ?? 'Initiated', ':payment_method' => $data['payment_method'] ?? 'OTHER',
         ':refundable' => $refundable
     ]);
-    send_json_response(['success' => true, 'message' => 'Transaction updated.']);
+    send_json_response(['success' => true, 'message' => 'Transaction updated successfully!']);
 }
 
 function bulk_update_transactions($pdo, $data) {
@@ -540,14 +540,18 @@ function bulk_update_transactions($pdo, $data) {
     $sql = "UPDATE wp_ea_transactions SET " . implode(', ', $set_clauses) . " WHERE id IN ($ids_placeholder)";
     $stmt = $pdo->prepare($sql);
     $stmt->execute(array_merge(array_values($params), $data['ids']));
-    send_json_response(['success' => true, 'message' => $stmt->rowCount() . ' transactions updated.']);
+    
+    // Proper pluralization for success message
+    $count = $stmt->rowCount();
+    $message = $count === 1 ? '1 transaction updated successfully!' : $count . ' transactions updated successfully!';
+    send_json_response(['success' => true, 'message' => $message]);
 }
 
 function delete_transaction($pdo, $data) {
     if (empty($data['id'])) send_json_response(['success' => false, 'error' => 'ID is required.'], 400);
     $stmt = $pdo->prepare("DELETE FROM wp_ea_transactions WHERE id = :id");
     $stmt->execute([':id' => $data['id']]);
-    send_json_response(['success' => $stmt->rowCount() > 0, 'message' => 'Transaction deleted.']);
+    send_json_response(['success' => $stmt->rowCount() > 0, 'message' => 'Transaction deleted successfully!']);
 }
 
 function handle_print($pdo, $data) {

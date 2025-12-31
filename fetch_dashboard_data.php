@@ -100,13 +100,14 @@ try {
     // This hides entries with 3+ consecutive special characters from the table but they still count in dashboard statistics
     // Updated logic: Only hide if ANY cell contains 3+ consecutive special characters
     // Pattern explanation: Matches 3 or more consecutive characters from the set [@#$%^&*!~`+=\[\]{}|\\<>?]
+    // Note: BINARY keyword ensures exact byte-by-byte comparison (MySQL default collation-independent matching)
     $specialCharPattern = '[@#$%^&*!~`+=\\[\\]{}|\\\\<>?]{3,}';
     $where_clauses[] = "(
-        client_name NOT REGEXP '$specialCharPattern' AND
-        COALESCE(reg_no, '') NOT REGEXP '$specialCharPattern' AND
-        COALESCE(Responsible, '') NOT REGEXP '$specialCharPattern' AND
-        COALESCE(service, '') NOT REGEXP '$specialCharPattern' AND
-        COALESCE(TIN, '') NOT REGEXP '$specialCharPattern'
+        BINARY client_name NOT REGEXP '$specialCharPattern' AND
+        BINARY COALESCE(reg_no, '') NOT REGEXP '$specialCharPattern' AND
+        BINARY COALESCE(Responsible, '') NOT REGEXP '$specialCharPattern' AND
+        BINARY COALESCE(service, '') NOT REGEXP '$specialCharPattern' AND
+        BINARY COALESCE(TIN, '') NOT REGEXP '$specialCharPattern'
     )";
     
     // 24-hour delay filter for JOSEPH records during search/filter
