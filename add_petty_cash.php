@@ -10,18 +10,18 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 header('Content-Type: application/json');
 
-if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    send_json_response(['success' => false, 'error' => 'Authentication required.'], 401);
-}
-
-require_once 'db.php';
-
 // --- HELPER FUNCTION ---
 function send_json_response($data, $statusCode = 200) {
     http_response_code($statusCode);
     echo json_encode($data);
     exit;
 }
+
+if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
+    send_json_response(['success' => false, 'error' => 'Authentication required.'], 401);
+}
+
+require_once 'db.php';
 
 // Check if database connection was successful
 if ($pdo === null) {
