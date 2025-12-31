@@ -504,6 +504,9 @@ function create_transaction($pdo, $data) {
 function update_transaction($pdo, $data) {
     if (empty($data['id'])) send_json_response(['success' => false, 'error' => 'ID is required.'], 400);
     
+    // Note: We attempt the update first without checking existence. This is optimal for the happy path
+    // (transaction exists and is updated) as it requires only one query. We only check existence if
+    // rowCount is 0, which handles the rare error case with a second query.
     $sql = "UPDATE wp_ea_transactions SET payment_date = :payment_date, type = :type, amount = :amount, currency = :currency, reference = :reference, note = :note, status = :status, payment_method = :payment_method, refundable = :refundable WHERE id = :id";
     $stmt = $pdo->prepare($sql);
     $type = $data['type'] ?? 'expense';
@@ -531,7 +534,7 @@ function update_transaction($pdo, $data) {
         $rowCount = $stmt->rowCount();
         if ($rowCount === 0) {
             // No rows were updated - either transaction doesn't exist or no changes were made
-            // Check if transaction exists
+            // Check if transaction exists (only done in error case for optimal performance)
             $checkStmt = $pdo->prepare("SELECT id FROM wp_ea_transactions WHERE id = :id");
             $checkStmt->execute([':id' => $data['id']]);
             if (!$checkStmt->fetchColumn()) {
