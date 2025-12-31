@@ -872,13 +872,19 @@ require_once 'header.php';
                 tr.dataset.originalHtml = tr.innerHTML;
                 tr.classList.add('editing-row');
 
+                // Helper function to safely escape HTML attribute values
+                const escapeAttr = (str) => {
+                    if (str === null || str === undefined) return '';
+                    return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                };
+
                 const refundableSelectHtml = tx.type === 'expense' ? `<select name="refundable"><option value="0">No</option><option value="1">Yes</option></select>` : '—';
-                tr.cells[1].innerHTML = `<input type="date" name="payment_date" value="${tx.payment_date}">`;
+                tr.cells[1].innerHTML = `<input type="date" name="payment_date" value="${escapeAttr(tx.payment_date)}">`;
                 tr.cells[2].innerHTML = `<select name="type"><option value="expense">Expense</option><option value="payment">Payment</option></select>`;
-                tr.cells[3].innerHTML = `<input type="text" name="reference" value="${tx.reference}">`;
+                tr.cells[3].innerHTML = `<input type="text" name="reference" value="${escapeAttr(tx.reference)}">`;
                 tr.cells[4].innerHTML = `<select name="payment_method"><option>MTN</option><option>BANK</option><option>CASH</option><option>OTHER</option></select>`;
-                tr.cells[5].innerHTML = `<input type="text" name="note" value="${tx.note}">`;
-                tr.cells[6].innerHTML = `<input type="number" step="0.01" name="amount" value="${tx.amount}" style="width: 70px; margin-right: 5px;"><select name="currency" style="width: 60px;"><option>RWF</option><option>USD</option><option>EUR</option></select>`;
+                tr.cells[5].innerHTML = `<input type="text" name="note" value="${escapeAttr(tx.note)}">`;
+                tr.cells[6].innerHTML = `<input type="number" step="0.01" name="amount" value="${escapeAttr(tx.amount)}" style="width: 70px; margin-right: 5px;"><select name="currency" style="width: 60px;"><option>RWF</option><option>USD</option><option>EUR</option></select>`;
                 tr.cells[7].innerHTML = `<select name="status"><option>Initiated</option><option>Processed</option><option>Completed</option></select>`;
                 tr.cells[8].innerHTML = refundableSelectHtml;
                 tr.cells[9].innerHTML = `<div class="tx-actions"><button class="btn success btn-sm save-btn"><svg class="icon"><use href="#icon-check"/></svg>Save</button><button class="btn secondary btn-sm cancel-edit-btn"><svg class="icon"><use href="#icon-x"/></svg>Cancel</button></div>`;
@@ -901,17 +907,23 @@ require_once 'header.php';
                 const data = { id, action: 'update' };
                 tr.querySelectorAll('input, select').forEach(input => { data[input.name] = input.value; });
                 
+                // Debug: Log the data being sent
+                console.log('Update transaction data:', data);
+                
                 button.disabled = true; button.innerHTML = 'Saving...';
                 try {
                     const response = await apiCall('POST', data);
+                    console.log('Update response:', response);
                     if (response && response.success) {
                         showSuccessMessage(response.message || 'Transaction updated successfully!');
                         fetchTransactions(getFilterState());
                     } else {
+                        console.error('Update failed with response:', response);
                         showErrorMessage(response.error || 'Failed to update transaction');
                         cancelEditing();
                     }
                 } catch (error) {
+                    console.error('Update error:', error);
                     showErrorMessage(error.message || 'Failed to update transaction');
                     cancelEditing();
                 }
