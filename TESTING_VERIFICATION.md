@@ -81,9 +81,10 @@ $where_clauses[] = "(
 | Client ??  | 2 (??)        | ✅ Yes   | ✅ Yes      | ✅ Yes              |
 | Client ??? | 3 (???)       | ❌ No    | ❌ No       | ✅ Yes              |
 | Client!!!! | 4 (!!!!)      | ❌ No    | ❌ No       | ✅ Yes              |
-| Client @#$ | 3 different   | ✅ Yes   | ✅ Yes      | ✅ Yes              |
+| Client@#$  | 3 consecutive | ❌ No    | ❌ No       | ✅ Yes              |
+| Client @ # $ | 3 separated | ✅ Yes   | ✅ Yes      | ✅ Yes              |
 
-Note: The pattern matches consecutive special characters, not total count.
+Note: The pattern `{3,}` matches 3 or more CONSECUTIVE special characters. Characters separated by spaces or other characters are not considered consecutive.
 
 ## Database Structure Verification
 
