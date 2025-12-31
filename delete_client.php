@@ -56,7 +56,7 @@ try {
         'reg_no' => $client['reg_no']
     ]);
     
-    echo json_encode(['success' => true]);
+    echo json_encode(['success' => true, 'message' => 'Client deleted successfully!']);
 
 } catch (Exception $e) {
     $pdo->rollBack();
