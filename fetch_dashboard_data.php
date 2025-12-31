@@ -80,34 +80,43 @@ try {
         // Simple search without complex escaping - PDO handles special characters in parameterized queries
         $searchTerm = trim($_GET['searchQuery']);
         
-        // Limit search term length to prevent performance issues (use mb_substr for multi-byte character support)
-        if (mb_strlen($searchTerm) > MAX_SEARCH_TERM_LENGTH) {
-            $searchTerm = mb_substr($searchTerm, 0, MAX_SEARCH_TERM_LENGTH);
+        // **NEW FIX**: Block searches containing special characters - return no results
+        // Check if search term contains any special characters (punctuation)
+        if (preg_match('/[[:punct:]]/', $searchTerm)) {
+            // Search contains special characters - add impossible condition to return no results
+            $where_clauses[] = "(1 = 0)"; // This will always evaluate to false, returning no results
+        } else {
+            // Limit search term length to prevent performance issues (use mb_substr for multi-byte character support)
+            if (mb_strlen($searchTerm) > MAX_SEARCH_TERM_LENGTH) {
+                $searchTerm = mb_substr($searchTerm, 0, MAX_SEARCH_TERM_LENGTH);
+            }
+            
+            $searchQuery = '%' . $searchTerm . '%';
+            // Search by reg_no, client_name, Responsible, TIN, and service
+            // Each field needs its own parameter when using native prepared statements (PDO::ATTR_EMULATE_PREPARES => false)
+            $where_clauses[] = "(reg_no LIKE :searchQuery1 OR client_name LIKE :searchQuery2 OR Responsible LIKE :searchQuery3 OR TIN LIKE :searchQuery4 OR service LIKE :searchQuery5)";
+            $params[':searchQuery1'] = $searchQuery;
+            $params[':searchQuery2'] = $searchQuery;
+            $params[':searchQuery3'] = $searchQuery;
+            $params[':searchQuery4'] = $searchQuery;
+            $params[':searchQuery5'] = $searchQuery;
         }
-        
-        $searchQuery = '%' . $searchTerm . '%';
-        // Search by reg_no, client_name, Responsible, TIN, and service
-        // Each field needs its own parameter when using native prepared statements (PDO::ATTR_EMULATE_PREPARES => false)
-        $where_clauses[] = "(reg_no LIKE :searchQuery1 OR client_name LIKE :searchQuery2 OR Responsible LIKE :searchQuery3 OR TIN LIKE :searchQuery4 OR service LIKE :searchQuery5)";
-        $params[':searchQuery1'] = $searchQuery;
-        $params[':searchQuery2'] = $searchQuery;
-        $params[':searchQuery3'] = $searchQuery;
-        $params[':searchQuery4'] = $searchQuery;
-        $params[':searchQuery5'] = $searchQuery;
     }
     
     // Filter out entries containing 3 or more consecutive special characters from frontend display
     // This hides entries with 3+ consecutive special characters from the table but they still count in dashboard statistics
     // Updated logic: Only hide if ANY cell contains 3+ consecutive special characters
-    // Pattern explanation: Matches 3 or more consecutive characters from the set [@#$%^&*!~`+=\[\]{}|\\<>?]
-    // Note: BINARY keyword ensures exact byte-by-byte comparison (MySQL default collation-independent matching)
-    $specialCharPattern = '[@#$%^&*!~`+=\\[\\]{}|\\\\<>?]{3,}';
+    // Pattern explanation: Matches 3 or more consecutive characters from the special character set
+    // We check for the same OR different special characters appearing 3+ times consecutively
+    // MySQL REGEXP pattern: [[:punct:]] matches any punctuation character
+    // {3,} means 3 or more consecutive matches
+    // Using hardcoded pattern to prevent SQL injection
     $where_clauses[] = "(
-        BINARY client_name NOT REGEXP '$specialCharPattern' AND
-        BINARY COALESCE(reg_no, '') NOT REGEXP '$specialCharPattern' AND
-        BINARY COALESCE(Responsible, '') NOT REGEXP '$specialCharPattern' AND
-        BINARY COALESCE(service, '') NOT REGEXP '$specialCharPattern' AND
-        BINARY COALESCE(TIN, '') NOT REGEXP '$specialCharPattern'
+        client_name NOT REGEXP '[[:punct:]]{3,}' AND
+        COALESCE(reg_no, '') NOT REGEXP '[[:punct:]]{3,}' AND
+        COALESCE(Responsible, '') NOT REGEXP '[[:punct:]]{3,}' AND
+        COALESCE(service, '') NOT REGEXP '[[:punct:]]{3,}' AND
+        COALESCE(TIN, '') NOT REGEXP '[[:punct:]]{3,}'
     )";
     
     // 24-hour delay filter for JOSEPH records during search/filter
