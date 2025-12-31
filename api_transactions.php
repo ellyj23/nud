@@ -504,13 +504,6 @@ function create_transaction($pdo, $data) {
 function update_transaction($pdo, $data) {
     if (empty($data['id'])) send_json_response(['success' => false, 'error' => 'ID is required.'], 400);
     
-    // Validate that the transaction exists
-    $checkStmt = $pdo->prepare("SELECT id FROM wp_ea_transactions WHERE id = :id");
-    $checkStmt->execute([':id' => $data['id']]);
-    if (!$checkStmt->fetchColumn()) {
-        send_json_response(['success' => false, 'error' => 'Transaction not found.'], 404);
-    }
-    
     $sql = "UPDATE wp_ea_transactions SET payment_date = :payment_date, type = :type, amount = :amount, currency = :currency, reference = :reference, note = :note, status = :status, payment_method = :payment_method, refundable = :refundable WHERE id = :id";
     $stmt = $pdo->prepare($sql);
     $type = $data['type'] ?? 'expense';
@@ -531,10 +524,24 @@ function update_transaction($pdo, $data) {
             ':refundable' => $refundable
         ]);
         
-        if ($result && $stmt->rowCount() > 0) {
-            send_json_response(['success' => true, 'message' => 'Transaction updated successfully!']);
+        if (!$result) {
+            send_json_response(['success' => false, 'error' => 'Failed to execute update query.'], 500);
+        }
+        
+        $rowCount = $stmt->rowCount();
+        if ($rowCount === 0) {
+            // No rows were updated - either transaction doesn't exist or no changes were made
+            // Check if transaction exists
+            $checkStmt = $pdo->prepare("SELECT id FROM wp_ea_transactions WHERE id = :id");
+            $checkStmt->execute([':id' => $data['id']]);
+            if (!$checkStmt->fetchColumn()) {
+                send_json_response(['success' => false, 'error' => 'Transaction not found.'], 404);
+            } else {
+                // Transaction exists but no changes were made (submitted same data)
+                send_json_response(['success' => true, 'message' => 'No changes were made. The transaction already has these values.'], 200);
+            }
         } else {
-            send_json_response(['success' => false, 'error' => 'No changes were made or transaction not found.'], 400);
+            send_json_response(['success' => true, 'message' => 'Transaction updated successfully!']);
         }
     } catch (PDOException $e) {
         send_json_response([

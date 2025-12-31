@@ -110,13 +110,13 @@ try {
     // We check for the same OR different special characters appearing 3+ times consecutively
     // MySQL REGEXP pattern: [[:punct:]] matches any punctuation character
     // {3,} means 3 or more consecutive matches
-    $specialCharPattern = '[[:punct:]]{3,}';
+    // Using hardcoded pattern to prevent SQL injection
     $where_clauses[] = "(
-        client_name NOT REGEXP '$specialCharPattern' AND
-        COALESCE(reg_no, '') NOT REGEXP '$specialCharPattern' AND
-        COALESCE(Responsible, '') NOT REGEXP '$specialCharPattern' AND
-        COALESCE(service, '') NOT REGEXP '$specialCharPattern' AND
-        COALESCE(TIN, '') NOT REGEXP '$specialCharPattern'
+        client_name NOT REGEXP '[[:punct:]]{3,}' AND
+        COALESCE(reg_no, '') NOT REGEXP '[[:punct:]]{3,}' AND
+        COALESCE(Responsible, '') NOT REGEXP '[[:punct:]]{3,}' AND
+        COALESCE(service, '') NOT REGEXP '[[:punct:]]{3,}' AND
+        COALESCE(TIN, '') NOT REGEXP '[[:punct:]]{3,}'
     )";
     
     // 24-hour delay filter for JOSEPH records during search/filter
