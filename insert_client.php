@@ -69,22 +69,24 @@ if ($paid_amount >= $amount && $amount > 0) {
 try {
     $pdo->beginTransaction();
 
-    // Check for duplicate reg_no considering year and service type
-    // Same reg_no is allowed if the year (from date) or service type is different
+    // Check for duplicate reg_no considering year, service type, and client name
+    // Same reg_no is allowed if the year (from date), service type, or client name is different
     // 
     // Note: This query uses YEAR(date) which prevents index usage on the date column.
     // For better performance with large datasets, consider adding a composite index:
-    // CREATE INDEX idx_reg_year_service ON clients(reg_no, date, service);
+    // CREATE INDEX idx_reg_year_service_client ON clients(reg_no, date, service, client_name);
     if (!empty($reg_no)) {
         $checkSql = "SELECT COUNT(*) FROM clients 
                      WHERE reg_no = :reg_no 
                      AND YEAR(date) = YEAR(:date) 
-                     AND service = :service";
+                     AND service = :service
+                     AND client_name = :client_name";
         $checkStmt = $pdo->prepare($checkSql);
         $checkStmt->execute([
             ':reg_no' => $reg_no,
             ':date' => $date,
-            ':service' => $service
+            ':service' => $service,
+            ':client_name' => $client_name
         ]);
         $count = $checkStmt->fetchColumn();
         
@@ -93,7 +95,7 @@ try {
             http_response_code(400);
             echo json_encode([
                 'success' => false,
-                'error' => 'Duplicate Registration Number: This reg no with the same service type already exists for this year'
+                'error' => 'Duplicate Entry: A client with the same registration number, service type, year, and client name already exists.'
             ]);
             exit;
         }
