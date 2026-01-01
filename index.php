@@ -1031,11 +1031,12 @@ $(document).ready(function() {
     }
 
     /**
-     * Search restriction feature - hides rows containing special characters when search is active
+     * Search restriction feature - hides rows containing more than 3 consecutive special characters when search is active
      */
     function containsSpecialChars(str) {
         if (!str) return false;
-        const specialCharsRegex = /[@#$%^&*!~`+=\[\]{}|\\<>]/;
+        // Match 4 or more consecutive special characters
+        const specialCharsRegex = /[@#$%^&*!~`+=\[\]{}|\\<>?]{4,}/;
         return specialCharsRegex.test(str);
     }
 
